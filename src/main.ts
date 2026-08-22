@@ -96,8 +96,8 @@ canvas.addEventListener('pointermove', (e) => {
       const k = view.dist * 0.0016
       view.pan(-(e.clientX - dragX) * k, -(e.clientY - dragY) * k)
     } else {
-      // 掴んで回す感覚に合わせ、右へドラッグすると世界が時計回り（Q キーと同じ向き）
-      view.rotate((e.clientX - dragX) * ROTATE_SENSITIVITY)
+      // 右へドラッグするとカメラが右へ回り込む（世界は反時計回りに見える）
+      view.rotate(-(e.clientX - dragX) * ROTATE_SENSITIVITY)
       // 上へドラッグすると視点が低くなり、下へドラッグすると見下ろす
       view.tilt((e.clientY - dragY) * TILT_SENSITIVITY)
     }
