@@ -105,6 +105,8 @@ export class World {
   readonly hasTree: Uint8Array
   readonly treeGrowth: Float64Array
   readonly treeDry: Float64Array
+  /** 立ち枯れ（1 = 枯れ木）。もう育たないが、伐れば丸太は取れる */
+  readonly treeDead: Uint8Array
   /** 燃えている木の勢い */
   readonly treeFire: Float64Array
 
@@ -125,6 +127,7 @@ export class World {
     this.hasTree = new Uint8Array(grid.size)
     this.treeGrowth = new Float64Array(grid.size)
     this.treeDry = new Float64Array(grid.size)
+    this.treeDead = new Uint8Array(grid.size)
     this.treeFire = new Float64Array(grid.size)
   }
 

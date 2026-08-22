@@ -290,6 +290,7 @@ const BARK = 0x6b4c33
 const CEDAR = 0x3f6b3a
 const PINE = 0x4e7f4a
 const BAMBOO = 0x5f8f42
+const DEAD_WOOD = 0x8a7f6d
 
 /** 杉。細くまっすぐ立ち、上へ行くほど細る */
 function cedar(): THREE.BufferGeometry {
@@ -325,6 +326,24 @@ function bamboo(): THREE.BufferGeometry {
     culm(-0.16, 0.1, 1.2, 0.06),
     culm(0.12, -0.12, 1.45, -0.05),
     culm(0.02, 0.18, 1.0, 0.02),
+  )
+}
+
+/**
+ * 枯れ木。葉が落ちて、白茶けた幹と折れ枝だけが立っている。
+ * 遠目にも生きた木と見分けが付くよう、色も形も葉を持たせない。
+ */
+function snag(): THREE.BufferGeometry {
+  const branch = (x: number, base: number, tilt: number) => {
+    const g = new THREE.CylinderGeometry(0.02, 0.045, 0.42, 4)
+    g.rotateZ(tilt)
+    return part(g, DEAD_WOOD, x, base, 0)
+  }
+  return merge(
+    cyl(0.05, 0.11, 1.15, 5, DEAD_WOOD),
+    branch(0.14, 0.92, -1.0),
+    branch(-0.13, 0.66, 0.9),
+    branch(0.08, 0.45, -0.7),
   )
 }
 
@@ -382,6 +401,7 @@ export class EntityMeshes {
       instanced(cedar(), solid(), MAX_TREES),
       instanced(pine(), solid(), MAX_TREES),
       instanced(bamboo(), solid(), MAX_TREES),
+      instanced(snag(), solid(), MAX_TREES), // 枯れ木
     ]
     this.people = instanced(person(), solid(), MAX_CITIZENS)
     this.flames = instanced(
@@ -479,12 +499,12 @@ export class EntityMeshes {
 
   private updateTrees(world: World): void {
     const { grid } = world
-    const n = [0, 0, 0]
+    const n = [0, 0, 0, 0]
     for (let i = 0; i < world.hasTree.length; i++) {
       if (!world.hasTree[i]) continue
-      // 杉が多く、松がまばらに混じり、竹は水辺寄りにひとかたまり
+      // 杉が多く、松がまばらに混じり、竹は水辺寄りにひとかたまり。枯れ木は別の形
       const r = (Math.imul(i + 7, 2654435761) >>> 0) % 100
-      const variant = r < 56 ? 0 : r < 88 ? 1 : 2
+      const variant = world.treeDead[i] ? 3 : r < 56 ? 0 : r < 88 ? 1 : 2
       if (n[variant] >= MAX_TREES) continue
       const jitter = (((Math.imul(i + 3, 40503) >>> 0) % 1000) / 1000 - 0.5) * 2
       const g = 0.45 + world.treeGrowth[i] * 0.75 + jitter * 0.08
@@ -494,8 +514,8 @@ export class EntityMeshes {
       dummy.updateMatrix()
       const mesh = this.trees[variant]
       mesh.setMatrixAt(n[variant], dummy.matrix)
-      // 乾いてくると葉が枯れ色になる
-      const dry = Math.min(1, world.treeDry[i] / 300)
+      // 乾いてくると葉が枯れ色になる（枯れ木はもう色を変えない）
+      const dry = world.treeDead[i] ? 0 : Math.min(1, world.treeDry[i] / 300)
       tint.setRGB(1, 1, 1).lerp(DRY_LEAF, dry)
       mesh.setColorAt(n[variant], tint)
       n[variant]++

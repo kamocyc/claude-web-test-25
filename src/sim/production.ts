@@ -125,6 +125,7 @@ export function updateProduction(world: World): MoistureSource[] {
           world.hasTree[t] = 1
           world.treeGrowth[t] = 0 // 伐った跡には苗を残す
           world.treeDry[t] = 0
+          world.treeDead[t] = 0 // 枯れ木を片づけた跡にも、生きた苗が残る
         }
         break
       }
@@ -136,7 +137,12 @@ export function updateProduction(world: World): MoistureSource[] {
   return moisture
 }
 
-/** 伐採小屋の範囲内で最も近い成木 */
+/**
+ * 伐採小屋の範囲内で伐れる木。枯れ木を先に片づけ、無ければ最も近い成木を伐る。
+ *
+ * 枯れ木はもう太らないので、置いておくだけ山が塞がる。先に片づければ跡地に苗が残り、
+ * 大雨や日照りにやられた山が立ち直っていく。
+ */
 function nearestTree(world: World, b: Building): number {
   const def = defOf(b.defId)
   const r = def.radius ?? 6
@@ -145,13 +151,16 @@ function nearestTree(world: World, b: Building): number {
   const by = grid.yOf(b.i)
   let best = -1
   let bestD = Infinity
+  let bestDead = 0
   for (let y = Math.max(0, by - r); y <= Math.min(grid.h - 1, by + r); y++) {
     for (let x = Math.max(0, bx - r); x <= Math.min(grid.w - 1, bx + r); x++) {
       const i = grid.idx(x, y)
       if (!world.hasTree[i] || world.treeGrowth[i] < 1) continue
+      const dead = world.treeDead[i]
       const d = (x - bx) ** 2 + (y - by) ** 2
-      if (d < bestD) {
+      if (dead === bestDead ? d < bestD : dead > bestDead) {
         bestD = d
+        bestDead = dead
         best = i
       }
     }
@@ -177,9 +186,11 @@ export function idleByWater(world: World, b: Building): boolean {
 /** 樹木の成長と枯死（重いので数 tick に 1 回だけ回す） */
 export function updateVegetation(world: World): void {
   if (world.tick % VEG_INTERVAL !== 0) return
-  const { hasTree, treeGrowth, treeDry, irrigation } = world
+  const { hasTree, treeGrowth, treeDry, treeDead, irrigation } = world
   for (let i = 0; i < hasTree.length; i++) {
     if (!hasTree[i]) continue
+    // 枯れ木は立ったまま残る。もう育たず、これ以上枯れようもない
+    if (treeDead[i]) continue
     // 乾いても、水に浸かりすぎても木は弱る（treeDry は「痛め付けられている時間」）
     const drowning = world.water.depth[i] >= FLOOD_TREE_DEPTH
     if (!drowning && irrigation.soilWet[i] >= SOIL_GROW_THRESHOLD) {
@@ -188,9 +199,17 @@ export function updateVegetation(world: World): void {
     } else {
       treeDry[i] += VEG_INTERVAL
       if (treeDry[i] > PLANT_DIE_TICKS) {
-        hasTree[i] = 0
-        treeGrowth[i] = 0
         treeDry[i] = 0
+        if (treeGrowth[i] >= 1) {
+          // 育ち切った木は立ち枯れる。消えてなくなりはせず、伐れば丸太が取れる
+          treeDead[i] = 1
+        } else {
+          // まだ細い若木は枯れて消えるだけ。伐り出すものは残らない。
+          // ここで枯れ木にすると、日照りのあいだ「苗を植える→枯れる→伐る」で
+          // 丸太が無尽蔵に湧いてしまう（枯れるほうが育つより速いため）
+          hasTree[i] = 0
+          treeGrowth[i] = 0
+        }
       }
     }
   }

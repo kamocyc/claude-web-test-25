@@ -48,6 +48,7 @@ interface SaveData {
   hasTree: number[]
   treeGrowth: number[]
   treeDry: number[]
+  treeDead: number[]
   treeFire: number[]
   sources: { i: number; strength: number }[]
   startI: number
@@ -98,6 +99,7 @@ export function serialize(world: World): string {
     hasTree: Array.from(world.hasTree),
     treeGrowth: Array.from(world.treeGrowth),
     treeDry: Array.from(world.treeDry),
+    treeDead: Array.from(world.treeDead),
     treeFire: Array.from(world.treeFire),
     sources: world.sources.map((s) => ({ ...s })),
     startI: world.startI,
@@ -134,6 +136,9 @@ export function deserializeInto(world: World, json: string): boolean {
   world.hasTree.set(data.hasTree)
   world.treeGrowth.set(data.treeGrowth)
   world.treeDry.set(data.treeDry)
+  // 枯れ木の無い頃のセーブもあるので、まず消してから入れ直す
+  world.treeDead.fill(0)
+  if (data.treeDead) world.treeDead.set(data.treeDead)
   world.treeFire.set(data.treeFire ?? [])
 
   world.tick = data.tick

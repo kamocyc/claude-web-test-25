@@ -205,7 +205,7 @@ function spread(world: World, rain: boolean): void {
 
 /** 燃えている木は燃え尽きて消える。消火の対象にはしない */
 function advanceTreeFire(world: World, rain: boolean): void {
-  const { treeFire, hasTree, treeGrowth } = world
+  const { treeFire, hasTree, treeGrowth, treeDead } = world
   for (let i = 0; i < treeFire.length; i++) {
     if (treeFire[i] <= 0) continue
     if (!hasTree[i]) {
@@ -215,8 +215,10 @@ function advanceTreeFire(world: World, rain: boolean): void {
     treeFire[i] += rain ? -FIRE_RAIN_QUENCH : TREE_FIRE_GROW
     if (treeFire[i] <= 0) treeFire[i] = 0
     else if (treeFire[i] >= 1.6) {
+      // 焼けた木は灰になって残らない（立ち枯れと違って伐り出すものが無い）
       hasTree[i] = 0
       treeGrowth[i] = 0
+      treeDead[i] = 0
       treeFire[i] = 0
     }
   }

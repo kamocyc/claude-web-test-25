@@ -219,6 +219,9 @@ function updateTooltip(x: number, y: number): void {
   if (depth > 0.01) parts.push(`水深 ${depth.toFixed(2)}`)
   const wet = world.irrigation.soilWet[hover]
   if (depth <= 0.01) parts.push(wet > 0.5 ? '湿った土' : '乾いた土')
+  if (world.hasTree[hover]) {
+    parts.push(world.treeDead[hover] ? '枯れ木' : world.treeGrowth[hover] >= 1 ? '木' : '若木')
+  }
   tooltip.innerHTML = parts.join(' ・ ')
   tooltip.style.left = `${x + 14}px`
   tooltip.style.top = `${y + 16}px`

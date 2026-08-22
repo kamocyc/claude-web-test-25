@@ -179,7 +179,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   {
     id: 'lumberjack',
     name: '杣小屋',
-    desc: '周りの育った木を伐って丸太にする。跡地には苗が残る。',
+    desc: '周りの育った木を伐って丸太にする。枯れ木があれば先に片づける。跡地にはどちらも苗が残る。',
     kind: 'lumberjack',
     category: 'industry',
     cost: { log: 3 },

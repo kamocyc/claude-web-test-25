@@ -156,7 +156,7 @@ describe('浸水', () => {
       w.tick++
       updateVegetation(w)
     }
-    expect(w.hasTree[i]).toBe(0)
+    expect(w.treeDead[i]).toBe(1) // 立ち枯れて残る
 
     // 浸かっていなければ枯れない
     const w2 = town()
@@ -168,6 +168,7 @@ describe('浸水', () => {
       updateVegetation(w2)
     }
     expect(w2.hasTree[j]).toBe(1)
+    expect(w2.treeDead[j]).toBe(0)
   })
 
   it('膝までの浸水では木は枯れない', () => {
@@ -181,7 +182,7 @@ describe('浸水', () => {
         w.tick++
         updateVegetation(w)
       }
-      return w.hasTree[i] === 1
+      return w.hasTree[i] === 1 && w.treeDead[i] === 0
     }
     // 人が歩ける深さ（〜1.0）では根まで沈まない。大雨のたびに山が丸裸にならない
     expect(alive(0.5)).toBe(true)
