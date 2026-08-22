@@ -86,6 +86,7 @@ let drag: 'pan' | 'rotate' | null = null
 let dragX = 0
 let dragY = 0
 const ROTATE_SENSITIVITY = 0.006
+const TILT_SENSITIVITY = 0.004
 const keys = new Set<string>()
 const tooltip = document.getElementById('tooltip') as HTMLElement
 
@@ -97,6 +98,8 @@ canvas.addEventListener('pointermove', (e) => {
     } else {
       // 掴んで回す感覚に合わせ、右へドラッグすると世界が時計回り（Q キーと同じ向き）
       view.rotate((e.clientX - dragX) * ROTATE_SENSITIVITY)
+      // 上へドラッグすると視点が低くなり、下へドラッグすると見下ろす
+      view.tilt((e.clientY - dragY) * TILT_SENSITIVITY)
     }
     dragX = e.clientX
     dragY = e.clientY

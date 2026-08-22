@@ -4,12 +4,24 @@ import { World } from '../core/world'
 
 const CHUNK = 16
 
-const TOP_DRY = new THREE.Color(0xa8926a)
-const TOP_WET = new THREE.Color(0x6f9a4f)
-const TOP_UNDER = new THREE.Color(0x5d6b52)
+const TOP_DRY = new THREE.Color(0xb59b6f)
+const TOP_WET = new THREE.Color(0x6f9f4a)
+const TOP_UNDER = new THREE.Color(0x5b6a4e)
+const SAND = new THREE.Color(0xd9c79a)
 const LEVEE = new THREE.Color(0x9a9a90)
-const SIDE = new THREE.Color(0x6b5b48)
-const SIDE_ROCK = new THREE.Color(0x565f66)
+const ROCK = new THREE.Color(0x8a8577)
+/** 側面 1 枚ぶんの頂点のうち、下側の頂点はどれか（簡易 AO 用）*/
+const SIDE_LOWER = [0, 1, 1, 0, 1, 0]
+
+// 毎フレーム呼ばれる可能性があるので、色の一時オブジェクトは使い回す
+const SCRATCH_TOP = new THREE.Color()
+const SCRATCH_SIDE = new THREE.Color()
+const SCRATCH_LOWER = new THREE.Color()
+
+/** 列ごとの決まった揺らぎ 0..1（のっぺりしないよう明るさを散らす） */
+function jitter(i: number): number {
+  return ((Math.imul(i + 1, 2654435761) >>> 0) % 1000) / 1000
+}
 
 interface Chunk {
   mesh: THREE.Mesh
@@ -57,6 +69,8 @@ export class TerrainMesh {
         const geom = new THREE.BufferGeometry()
         const mesh = new THREE.Mesh(geom, this.material)
         mesh.frustumCulled = true
+        mesh.castShadow = true
+        mesh.receiveShadow = true
         this.group.add(mesh)
         this.chunks.push({ mesh, geom, columns, start: new Map(), count: new Map(), dirty: true })
       }
@@ -119,20 +133,39 @@ export class TerrainMesh {
     return this.grid.ground[this.grid.idx(x, y)]
   }
 
+  /** 隣に水があり、その水面とほぼ同じ高さなら砂浜として扱う */
+  private isShore(i: number): boolean {
+    const { grid, world } = this
+    let shore = false
+    grid.forEachNeighbor(i, (n) => {
+      if (shore) return
+      if (world.water.depth[n] <= 0.05) return
+      if (grid.ground[i] <= world.water.surface(n) + 1.2) shore = true
+    })
+    return shore
+  }
+
   private writeColors(colors: Float32Array, start: number, count: number, i: number): void {
     const { world, grid } = this
     const wet = world.irrigation.soilWet[i]
     const under = world.water.depth[i] > 0.05
-    const top = new THREE.Color()
+    const top = SCRATCH_TOP
     if (grid.levee[i] > 0) top.copy(LEVEE)
     else if (under) top.copy(TOP_UNDER)
-    else top.copy(TOP_DRY).lerp(TOP_WET, wet)
-    // 高いところほど明るく
-    const tint = 0.85 + Math.min(1, grid.ground[i] / 16) * 0.3
+    else {
+      top.copy(TOP_DRY).lerp(TOP_WET, wet)
+      if (this.isShore(i)) top.lerp(SAND, 0.5)
+    }
+    // 高いところほど明るく、列ごとに少し揺らぐ
+    const tint = (0.88 + Math.min(1, grid.ground[i] / 16) * 0.22) * (0.94 + jitter(i) * 0.12)
     top.multiplyScalar(tint)
-    const side = new THREE.Color().copy(grid.ground[i] > 9 ? SIDE_ROCK : SIDE).multiplyScalar(tint)
+    // 側面は上面の色から作る。固定の岩色を使うと、平地にぽつんとある 1 段の段差が
+    // 黒い板のように浮いて見えてしまう。高いところほど岩肌に寄せる。
+    const rocky = Math.min(1, Math.max(0, (grid.ground[i] - 11) / 7)) * 0.55
+    const side = SCRATCH_SIDE.copy(top).multiplyScalar(0.74).lerp(ROCK, rocky * 0.5)
+    const lower = SCRATCH_LOWER.copy(side).multiplyScalar(0.8) // 足元を少し暗くして立体感を出す
     for (let v = 0; v < count; v++) {
-      const c = v < 6 ? top : side
+      const c = v < 6 ? top : SIDE_LOWER[(v - 6) % 6] ? lower : side
       const o = (start + v) * 3
       colors[o] = c.r
       colors[o + 1] = c.g

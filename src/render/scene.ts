@@ -1,7 +1,10 @@
 import * as THREE from 'three'
 import { Grid } from '../core/grid'
 
+/** 既定の俯角。マウスの上下ドラッグで MIN_PITCH〜MAX_PITCH の間を変えられる */
 export const PITCH = 0.92
+export const MIN_PITCH = 0.3 // 17°（地平線寄り）
+export const MAX_PITCH = 1.45 // 83°（ほぼ真上）
 const MIN_DIST = 12
 const MAX_DIST = 170
 
@@ -29,6 +32,39 @@ export function panDelta(yaw: number, dx: number, dz: number): { x: number; z: n
   return { x: dx * c + dz * s, z: -dx * s + dz * c }
 }
 
+const SKY_VERT = /* glsl */ `
+varying vec3 vDir;
+void main() {
+  vDir = normalize(position);
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`
+
+const SKY_FRAG = /* glsl */ `
+uniform vec3 uZenith;
+uniform vec3 uHorizon;
+uniform vec3 uGround;
+uniform vec3 uSunDir;
+uniform float uHaze;
+varying vec3 vDir;
+void main() {
+  vec3 d = normalize(vDir);
+  float up = d.y;
+  vec3 sky = mix(uHorizon, uZenith, pow(clamp(up, 0.0, 1.0), 0.55));
+  // 地平線より下は遠景の霞として扱う（見下ろす視点では画面の多くがここになる）
+  vec3 below = mix(uHorizon, uGround, clamp(-up * 2.2, 0.0, 1.0));
+  sky = mix(below, sky, step(0.0, up));
+  // 太陽の方向がうっすら明るい
+  float sun = pow(max(dot(d, normalize(uSunDir)), 0.0), 8.0);
+  sky += vec3(0.35, 0.28, 0.18) * sun * (0.6 + uHaze);
+  gl_FragColor = vec4(sky, 1.0);
+  // 自前シェーダはトーンマップと sRGB 変換を自分で通す必要がある
+  // （通さないと three が線形に直した色をそのまま出してしまい、全体が暗くなる）
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`
+
 /** 3D 見下ろしカメラとレンダラ。 */
 export class SceneView {
   readonly renderer: THREE.WebGLRenderer
@@ -36,9 +72,12 @@ export class SceneView {
   readonly camera: THREE.PerspectiveCamera
   readonly sun: THREE.DirectionalLight
   readonly ambient: THREE.AmbientLight
+  private readonly sky: THREE.Mesh
+  private readonly skyMat: THREE.ShaderMaterial
 
   readonly target = new THREE.Vector3()
   yaw = 0.6
+  pitch = PITCH
   dist = 60
 
   private readonly grid: Grid
@@ -50,16 +89,56 @@ export class SceneView {
     this.grid = grid
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2))
-    this.renderer.setClearColor(0x0d1319)
-    this.camera = new THREE.PerspectiveCamera(45, 1, 0.5, 800)
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping
+    this.renderer.toneMappingExposure = 1.15
+    this.renderer.shadowMap.enabled = true
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
+    this.camera = new THREE.PerspectiveCamera(45, 1, 0.5, 900)
 
-    this.scene.fog = new THREE.Fog(0x0d1319, 120, 320)
-    this.ambient = new THREE.AmbientLight(0xbfd4e6, 1.1)
+    // 空。遠景は空の色へ溶かすので、霧の色は地平線と揃える
+    this.skyMat = new THREE.ShaderMaterial({
+      vertexShader: SKY_VERT,
+      fragmentShader: SKY_FRAG,
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        uZenith: { value: new THREE.Color(0x2f6ea8) },
+        uHorizon: { value: new THREE.Color(0xbcd3e0) },
+        uGround: { value: new THREE.Color(0x93a4a8) },
+        uSunDir: { value: new THREE.Vector3(0.5, 0.7, 0.4).normalize() },
+        uHaze: { value: 0 },
+      },
+    })
+    this.sky = new THREE.Mesh(new THREE.SphereGeometry(420, 24, 16), this.skyMat)
+    this.sky.frustumCulled = false
+    this.sky.renderOrder = -1
+    this.scene.add(this.sky)
+    this.scene.fog = new THREE.Fog(0xbcd3e0, 90, 330)
+
+    this.ambient = new THREE.AmbientLight(0xdcd6c2, 0.72)
     this.scene.add(this.ambient)
-    this.sun = new THREE.DirectionalLight(0xfff1d8, 2.0)
+    this.sun = new THREE.DirectionalLight(0xfff0d6, 2.6)
     this.sun.position.set(60, 90, 30)
+    this.sun.castShadow = true
+    this.sun.shadow.mapSize.set(2048, 2048)
+    this.sun.shadow.camera.near = 1
+    this.sun.shadow.camera.far = 400
+    this.sun.shadow.bias = -0.0004
+    this.sun.shadow.normalBias = 0.08
+    // 影の範囲はマップ全体に固定する。カメラに追従させると、範囲の外側で
+    // 影マップの端が引き伸ばされて地面に黒い帯が出てしまう。
+    // 盤面は 80x80 程度なので、2048px あれば 1 マスあたり十数 px 取れる。
+    const span = Math.max(grid.w, grid.h) * 0.8
+    const shadowCam = this.sun.shadow.camera
+    shadowCam.left = -span
+    shadowCam.right = span
+    shadowCam.top = span
+    shadowCam.bottom = -span
+    shadowCam.updateProjectionMatrix()
     this.scene.add(this.sun)
-    this.scene.add(new THREE.HemisphereLight(0x9fc6e8, 0x39301f, 0.6))
+    this.scene.add(this.sun.target)
+    this.scene.add(new THREE.HemisphereLight(0xaed0e8, 0x9c8b6b, 0.62))
 
     this.target.set(grid.w / 2, 0, grid.h / 2)
     this.resize()
@@ -74,13 +153,19 @@ export class SceneView {
     this.camera.updateProjectionMatrix()
   }
 
-  /** 季節に応じて日差しの色を変える（乾季は白茶けた強い光） */
+  /** 季節に応じて光と空の色を変える（乾季は白茶けて霞む） */
   setSeasonLight(drought: number): void {
-    const warm = new THREE.Color(0xfff1d8)
-    const dry = new THREE.Color(0xffd9a0)
+    const warm = new THREE.Color(0xfff0d6)
+    const dry = new THREE.Color(0xffd49a)
     this.sun.color.copy(warm).lerp(dry, drought)
-    this.sun.intensity = 2.0 + drought * 0.5
-    this.ambient.intensity = 1.1 - drought * 0.2
+    this.sun.intensity = 2.6 + drought * 0.4
+    this.ambient.intensity = 0.72 - drought * 0.08
+    const u = this.skyMat.uniforms
+    ;(u.uZenith.value as THREE.Color).setHex(0x2f6ea8).lerp(new THREE.Color(0x6f7fa0), drought)
+    const horizon = new THREE.Color(0xbcd3e0).lerp(new THREE.Color(0xdcc9a4), drought)
+    ;(u.uHorizon.value as THREE.Color).copy(horizon)
+    u.uHaze.value = drought
+    ;(this.scene.fog as THREE.Fog).color.copy(horizon)
   }
 
   pan(dx: number, dz: number): void {
@@ -96,13 +181,22 @@ export class SceneView {
   rotate(delta: number): void {
     this.yaw += delta
   }
+  /** 見下ろす角度を変える（正で真上寄り、負で地平線寄り） */
+  tilt(delta: number): void {
+    this.pitch = THREE.MathUtils.clamp(this.pitch + delta, MIN_PITCH, MAX_PITCH)
+  }
 
   updateCamera(): void {
-    const offset = cameraOffset(this.yaw)
+    const offset = cameraOffset(this.yaw, this.pitch)
     this.camera.position.copy(this.target).addScaledVector(offset, this.dist)
     this.camera.lookAt(this.target)
-    this.sun.position.copy(this.target).add(new THREE.Vector3(40, 80, 25))
-    this.sun.target.position.copy(this.target)
+    this.sky.position.copy(this.camera.position)
+
+    // 太陽はマップ中心の上に固定（影の範囲も固定なので、視点を動かしても影が揺れない）
+    const cx = this.grid.w / 2
+    const cz = this.grid.h / 2
+    this.sun.position.set(cx + 95, 100, cz + 58) // 少し低めの陽射しで影が伸びる
+    this.sun.target.position.set(cx, 0, cz)
     this.sun.target.updateMatrixWorld()
   }
 

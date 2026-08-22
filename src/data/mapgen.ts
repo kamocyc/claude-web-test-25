@@ -57,27 +57,37 @@ export function generateWorld(opts: MapOptions = {}): World {
   const center = (y: number) => w / 2 + Math.sin(y * 0.11) * 5 + Math.sin(y * 0.037) * 7
   const riverBed = (y: number) => 7 - (y / h) * 4
 
+  // 谷の断面: 水路 → 一段上がった浅瀬 → 広い氾濫原（ほぼ平ら）→ 段丘の高地。
+  // 氾濫原を広く取ってあるので、川のそばにまとまった建設・耕作の土地がある。
+  const CHANNEL = 2.6 // 水路の半幅
+  const SHORE = 1.6 // 浅瀬の幅（1 段だけ上げて歩いて降りられるようにする）
+  const PLAIN = 11 // 氾濫原の幅
+
   for (let y = 0; y < h; y++) {
     const cx = center(y)
     const bed = riverBed(y)
     for (let x = 0; x < w; x++) {
       const i = grid.idx(x, y)
       const d = Math.abs(x - cx)
-      // 川筋は一段掘れた水路にして、そこから岸が立ち上がる
-      const floor = bed - 1
-      let hgt = floor
-      if (d >= 2.2) {
-        // 岸は必ず立ち上げて川を閉じ込め、そこから先はノイズで起伏を付ける。
-        // ノイズは加算のみ（掘り下げない）なので水路が途中で決壊しない。
-        const bankRise = Math.min(d - 2.2, 4) * 0.75
-        const outward = Math.max(0, d - 6.2) * 0.2
-        const bump = fbm(i) * 11 * Math.min(1, (d - 2.2) / 5)
-        hgt = floor + Math.min(13, bankRise + outward + bump)
+      const t = d - CHANNEL
+      let hgt: number
+      if (t < 0) {
+        hgt = bed - 2 // 水路
+      } else if (t < SHORE) {
+        hgt = bed - 1 // 浅瀬
+      } else if (t < SHORE + PLAIN) {
+        // 氾濫原。たまに 1 段の高まりがあるだけで、ほぼ平ら
+        hgt = bed + (fbm(i) > 0.76 ? 1 : 0)
+      } else {
+        // ここから段丘。ノイズは加算のみなので谷が決壊しない
+        const up = t - SHORE - PLAIN
+        const blend = Math.min(1, up / 4)
+        hgt = bed + up * 0.5 + fbm(i) * 11 * blend
       }
       // マップ端は崖にして水を閉じ込める。ただし上流の流入口と下流の放流口だけは
       // 川床のまま開けておく（ここから水が入り、ここから流れ去る）。
       const edge = Math.min(x, y, w - 1 - x, h - 1 - y)
-      const mouth = d < 3.2 && (y <= 2 || y >= h - 3)
+      const mouth = d < CHANNEL + SHORE && (y <= 2 || y >= h - 3)
       if (edge < 3 && !mouth) hgt = Math.max(hgt, bed + 9)
       grid.natural[i] = Math.max(0, Math.min(MAX_Z - 6, Math.round(hgt)))
     }
@@ -91,7 +101,7 @@ export function generateWorld(opts: MapOptions = {}): World {
   for (let x = Math.round(topCx) - 2; x <= Math.round(topCx) + 2; x++) {
     if (x < 0 || x >= w) continue
     const i = grid.idx(x, 1)
-    grid.natural[i] = Math.round(riverBed(1)) - 1
+    grid.natural[i] = Math.round(riverBed(1)) - 2
     grid.refreshGround(i)
     world.sources.push({ i, strength: 0.28 })
   }
@@ -103,7 +113,9 @@ export function generateWorld(opts: MapOptions = {}): World {
     const bed = riverBed(y)
     for (let x = 0; x < w; x++) {
       const i = grid.idx(x, y)
-      if (Math.abs(x - cx) < 3.6 && grid.ground[i] <= bed - 0.5) world.water.depth[i] = 0.9
+      // 落ち着いたときの水位に合わせて入れておく（多く入れすぎると岸が一度冠水し、
+      // 引いた後に岸辺の施設が取水できなくなる）
+      if (Math.abs(x - cx) < 4.2 && grid.ground[i] <= bed - 1.5) world.water.depth[i] = 0.9
     }
   }
 
@@ -113,9 +125,9 @@ export function generateWorld(opts: MapOptions = {}): World {
     for (let x = 2; x < w - 2; x++) {
       const i = grid.idx(x, y)
       const d = Math.abs(x - cx)
-      if (d < 3.5 || d > 14) continue
+      if (d < 4.5 || d > 22) continue
       if (world.water.depth[i] > 0) continue
-      if (rng.next() > 0.22) continue
+      if (rng.next() > 0.18) continue
       world.hasTree[i] = 1
       world.treeGrowth[i] = rng.range(0.5, 1)
     }

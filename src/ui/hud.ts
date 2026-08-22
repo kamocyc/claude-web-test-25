@@ -10,6 +10,8 @@ export class Hud {
   private readonly population = document.getElementById('population') as HTMLElement
   private readonly logBox = document.getElementById('log') as HTMLElement
   private lastLog = ''
+  private lastResources = ''
+  private lastSeason = ''
 
   constructor(onSpeed: (speed: number) => void, onStorage: (action: StorageAction) => void) {
     const storage = document.getElementById('storage') as HTMLElement
@@ -29,20 +31,29 @@ export class Hud {
   }
 
   update(world: World): void {
+    // 毎フレーム innerHTML を書き換えるとレイアウトが走り続けるので、変化したときだけ差し替える
     const cap = world.capacity
-    this.resources.innerHTML = RESOURCES.map((k) => {
+    const html = RESOURCES.map((k) => {
       const v = Math.floor(world.stock[k])
       const full = cap > 0 && v >= cap ? ' full' : ''
       return `<span class="res${full}">${RESOURCE_LABEL[k]} <b>${v}</b><span class="cost">/${cap}</span></span>`
     }).join('')
+    if (html !== this.lastResources) {
+      this.lastResources = html
+      this.resources.innerHTML = html
+    }
 
     const s = world.season
     const drought = s.kind === 'drought'
-    this.season.className = `chip${drought ? ' drought' : ''}`
-    this.season.textContent = `${drought ? '乾季' : '温暖期'} ・ ${s.day + 1}日目 ・ ${
+    const season = `${drought ? '乾季' : '温暖期'} ・ ${s.day + 1}日目 ・ ${
       drought ? '残り' : '次の乾季まで'
-    }${s.daysLeft}日`
-    this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
+    }${s.daysLeft}日|${world.citizens.length}/${world.housing}`
+    if (season !== this.lastSeason) {
+      this.lastSeason = season
+      this.season.className = `chip${drought ? ' drought' : ''}`
+      this.season.textContent = season.split('|')[0]
+      this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
+    }
 
     // 件数だけで見ると、ロードで中身が入れ替わったときに更新されない
     const logKey = `${world.log.length}:${world.log[world.log.length - 1] ?? ''}`
