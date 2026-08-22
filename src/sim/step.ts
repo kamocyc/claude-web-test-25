@@ -100,5 +100,5 @@ function onNewDay(world: World): void {
     const c = world.spawnCitizen(world.startI)
     world.pushLog(`${c.name} が仲間に加わった`)
   }
-  if (world.citizens.length === 0) world.pushLog('入植地は途絶えた…')
+  if (world.citizens.length === 0) world.pushLog('村は絶えた…')
 }

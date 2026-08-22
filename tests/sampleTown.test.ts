@@ -1,26 +1,46 @@
 import { describe, expect, it } from 'vitest'
 import { createSampleGame } from '../src/data/sampleTown'
 import { defOf } from '../src/data/buildings'
-import { TICKS_PER_DAY } from '../src/data/constants'
+import {
+  BOAT_MIN_DEPTH,
+  PADDY_MAX_DEPTH,
+  PADDY_MIN_DEPTH,
+  TICKS_PER_DAY,
+} from '../src/data/constants'
 import { Game } from '../src/core/game'
+
+/**
+ * サンプルの村は地形に合わせて掘って建てるので、盤面の大きさで出来上がりが変わる。
+ * 実際に配られるのと同じ 80x80 で試す（main.ts は生成した盤面と同じ寸法を渡す）。
+ */
+const SIZE = 80
 
 function countOf(g: Game, defId: string): number {
   return g.world.buildings.filter((b) => b.defId === defId).length
 }
 
-describe('サンプルの町', () => {
+describe('サンプルの村', () => {
   it('主要な建物が揃っていて、全部完成している', () => {
-    const g = createSampleGame(64, 64)
+    const g = createSampleGame(SIZE, SIZE)
     expect(g.world.buildings.filter((b) => !b.built)).toEqual([])
-    for (const id of ['pump', 'house', 'storage', 'lumberjack', 'sawmill', 'mill', 'farm', 'irrigation', 'dam', 'floodgate']) {
+    const wanted = [
+      'pump', 'house', 'storage', 'dozo', 'lumberjack', 'sawmill', 'mill',
+      'paddy', 'farm', 'irrigation', 'dam', 'floodgate',
+      'wharf', 'firetower', 'firehouse', 'barrel',
+    ]
+    for (const id of wanted) {
       expect(countOf(g, id), `${defOf(id).name} が無い`).toBeGreaterThan(0)
     }
-    expect(countOf(g, 'farm')).toBeGreaterThanOrEqual(4)
-    expect(g.world.citizens.length).toBeGreaterThanOrEqual(14)
+    expect(countOf(g, 'wharf')).toBeGreaterThanOrEqual(2) // 蔵のそばと運河の先
+    expect(g.world.citizens.length).toBeGreaterThanOrEqual(16)
+
+    let roads = 0
+    for (let i = 0; i < g.world.grid.size; i++) if (g.world.grid.road[i]) roads++
+    expect(roads).toBeGreaterThan(10)
   }, 60000)
 
   it('職場に働き手が付いて町が回っている', () => {
-    const g = createSampleGame(64, 64)
+    const g = createSampleGame(SIZE, SIZE)
     const w = g.world
     const staffed = w.buildings.filter((b) => defOf(b.defId).workers > 0 && b.workers.length > 0)
     expect(staffed.length).toBeGreaterThanOrEqual(5)
@@ -36,8 +56,51 @@ describe('サンプルの町', () => {
     expect(w.stock.wheat + w.stock.meal).toBeGreaterThan(0)
   }, 60000)
 
+  it('用水路の水が田に来ていて、稲が育っている', () => {
+    const g = createSampleGame(SIZE, SIZE)
+    const w = g.world
+    const paddies = w.buildings.filter((b) => b.defId === 'paddy')
+    expect(paddies.length).toBeGreaterThanOrEqual(3)
+    for (const b of paddies) {
+      expect(w.water.depth[b.i]).toBeGreaterThanOrEqual(PADDY_MIN_DEPTH)
+      expect(w.water.depth[b.i]).toBeLessThanOrEqual(PADDY_MAX_DEPTH)
+    }
+    // 何日か回せば籾が穫れる
+    w.stock.rice = 0
+    for (let t = 0; t < TICKS_PER_DAY * 4; t++) g.step()
+    expect(w.stock.rice + w.stock.meal).toBeGreaterThan(0)
+  }, 60000)
+
+  it('掘った運河が川とつながっていて、二つの船着場を舟が行き来できる', () => {
+    const g = createSampleGame(SIZE, SIZE)
+    const w = g.world
+    const wharves = w.buildings.filter((b) => b.defId === 'wharf')
+    expect(wharves.length).toBeGreaterThanOrEqual(2)
+
+    // 舟が通れる水域（水深 BOAT_MIN_DEPTH 以上）を、片方の船着場から塗る
+    const seen = new Uint8Array(w.grid.size)
+    const queue: number[] = []
+    const push = (i: number) => {
+      if (seen[i] || w.water.depth[i] < BOAT_MIN_DEPTH) return
+      seen[i] = 1
+      queue.push(i)
+    }
+    w.grid.forEachNeighbor(wharves[0].i, push)
+    for (let qi = 0; qi < queue.length; qi++) w.grid.forEachNeighbor(queue[qi], push)
+
+    // もう一方の船着場にも同じ水域が届いている ＝ 運河が川につながっている
+    let linked = false
+    w.grid.forEachNeighbor(wharves[1].i, (n) => {
+      if (seen[n]) linked = true
+    })
+    expect(linked).toBe(true)
+
+    // 舟で荷を捌いている建物がある
+    expect(w.buildings.filter((b) => g.logistics.routeOf(b.id) === 'boat').length).toBeGreaterThan(0)
+  }, 60000)
+
   it('堰の上流に貯水池ができている', () => {
-    const g = createSampleGame(64, 64)
+    const g = createSampleGame(SIZE, SIZE)
     const w = g.world
     const weir = w.buildings.find((b) => b.defId === 'dam')!
     const row = w.grid.yOf(weir.i)
@@ -55,8 +118,8 @@ describe('サンプルの町', () => {
   }, 60000)
 
   it('同じシードなので毎回同じ町になる', () => {
-    const a = createSampleGame(64, 64)
-    const b = createSampleGame(64, 64)
+    const a = createSampleGame(SIZE, SIZE)
+    const b = createSampleGame(SIZE, SIZE)
     expect(b.world.buildings.map((x) => `${x.defId}@${x.i}`)).toEqual(
       a.world.buildings.map((x) => `${x.defId}@${x.i}`),
     )

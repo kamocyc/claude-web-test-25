@@ -41,7 +41,7 @@ const hud = new Hud(
       return
     }
     if (action === 'sample') {
-      if (world.buildings.length > 1 && !confirm('今の町を捨ててサンプルの町を読み込みますか？')) return
+      if (world.buildings.length > 1 && !confirm('今の村を捨ててサンプルの村を読み込みますか？')) return
       world.pushLog('サンプルの町を用意している…')
       // 生成に少し時間がかかるので、上の一行を描いてから始める
       setTimeout(() => {
@@ -65,7 +65,7 @@ const menu = new BuildMenu((def) => {
   else ghost.hide()
 })
 
-/** その列の地面の高さに注視点を合わせる（y を 0 のままにすると町が画面からずれる） */
+/** その列の地面の高さに注視点を合わせる（y を 0 のままにすると村が画面からずれる） */
 function centerOn(i: number): void {
   view.target.set(world.grid.xOf(i) + 0.5, world.grid.ground[i], world.grid.yOf(i) + 0.5)
 }
