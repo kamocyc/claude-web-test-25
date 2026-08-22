@@ -25,6 +25,10 @@ export interface Building {
   stack: number
   /** 建設待ちの追加段数（土手・掘削）*/
   pending: number
+  /** 蔵へまだ運べていない荷 */
+  load: number
+  /** 荷の種類（空なら荷なし） */
+  loadKind: ResourceKind | ''
   /** この tick に実際に稼働したか */
   active: boolean
   /** 直近の稼働状況（UI 表示用） */
@@ -150,6 +154,8 @@ export class World {
       gateHeight: def.kind === 'floodgate' ? 3 : 0,
       stack: 0,
       pending: 0,
+      load: 0,
+      loadKind: '',
       active: false,
       status: built ? '' : '建設中',
     }

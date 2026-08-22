@@ -29,7 +29,7 @@ centerOn(world.startI)
 // デバッグ用に主要オブジェクトを公開する（レイヤの表示切り替えなどに使う）
 ;(window as unknown as { game: unknown }).game = { game, view, terrain, water, entities }
 
-const inspector = new Inspector(world)
+const inspector = new Inspector(world, game.logistics)
 const hud = new Hud(
   (s) => {
     speed = s

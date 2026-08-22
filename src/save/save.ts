@@ -33,6 +33,7 @@ interface SaveData {
   ceiling: number[]
   flowResist: number[]
   isDrain: number[]
+  road: number[]
   depth: number[]
   fluxX: number[]
   fluxY: number[]
@@ -77,6 +78,7 @@ export function serialize(world: World): string {
     ceiling: Array.from(grid.ceiling),
     flowResist: Array.from(grid.flowResist),
     isDrain: Array.from(grid.isDrain),
+    road: Array.from(grid.road),
     depth: Array.from(water.depth),
     fluxX: Array.from(water.fluxX),
     fluxY: Array.from(water.fluxY),
@@ -108,6 +110,7 @@ export function deserializeInto(world: World, json: string): boolean {
   grid.ceiling.set(data.ceiling)
   grid.flowResist.set(data.flowResist)
   grid.isDrain.set(data.isDrain)
+  grid.road.set(data.road ?? [])
   grid.refreshAllGround()
 
   world.water.depth.set(data.depth)

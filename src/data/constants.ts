@@ -40,6 +40,18 @@ export const SOIL_GROW_THRESHOLD = 0.5 // 植物が育つ土壌水分
 export const PADDY_MIN_DEPTH = 0.05 // これを割ると稲は枯れていく
 export const PADDY_MAX_DEPTH = 1.0 // これを超えると水没して生育が止まる（枯れはしない）
 
+// --- 物流 -----------------------------------------------------------------
+// 生産物は建物の荷置き場にいったん積まれ、蔵へは 1 日に運べる量しか流れない。
+export const LOAD_CAP = 24 // 荷置き場の容量。埋まると建物は止まる
+export const LAND_NEAR = 12 // ここまでなら「村の中」。荷運びに困らない
+export const LAND_FAR = 30 // ここを超えると人が背負うしかない
+export const ROAD_COST = 0.4 // 道の上は 1 マスをこれだけとして数える
+/** 経路ごとに 1 日で運べる量 */
+export const ROUTE_RATE = { boat: 100, near: 60, cart: 8, foot: 2 }
+export const BOAT_MIN_DEPTH = 0.8 // 舟が通れる水深
+export const WHARF_RADIUS = 8 // 船着場の集荷範囲
+export const LOGISTICS_RECALC_TICKS = 30
+
 // --- 住民 -----------------------------------------------------------------
 export const CITIZEN_SPEED = 2.2 // [m/s]
 export const NEED_DECAY = {

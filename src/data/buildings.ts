@@ -27,12 +27,14 @@ export type BuildingKind =
   | 'farm'
   | 'mill'
   | 'storage'
+  | 'wharf'
+  | 'road'
   | 'levee'
   | 'dam'
   | 'floodgate'
   | 'dig'
 
-export type Placement = 'land' | 'shallowWater' | 'nearWater' | 'anyTerrain'
+export type Placement = 'land' | 'shallowWater' | 'nearWater' | 'nearBoatWater' | 'anyTerrain'
 
 export interface BuildingDef {
   id: string
@@ -145,6 +147,21 @@ export const BUILDINGS: readonly BuildingDef[] = [
     color: 0x7fc4d8,
     height: 2.2,
     placement: 'land',
+  },
+  {
+    id: 'wharf',
+    name: '船着場',
+    desc: '舟で荷を運ぶ桟橋。水深 0.8 以上の水路に面していること。蔵のそばの船着場と水路がつながっていれば、周囲 8 マスの荷が一気に捌ける。',
+    kind: 'wharf',
+    category: 'water',
+    cost: { log: 5, plank: 3 },
+    buildPoints: 140,
+    workers: 1,
+    jobPriority: 6,
+    radius: 8,
+    color: 0x8a6f4c,
+    height: 0.9,
+    placement: 'nearBoatWater',
   },
   {
     id: 'lumberjack',
@@ -260,6 +277,19 @@ export const BUILDINGS: readonly BuildingDef[] = [
     color: 0x6b6b78,
     height: 3,
     placement: 'anyTerrain',
+  },
+  {
+    id: 'road',
+    name: '道',
+    desc: '荷車の通る道。敷いた列は 1 マスを 0.4 マスとして数えるので、蔵から遠い建物まで荷が捌けるようになる。',
+    kind: 'road',
+    category: 'terrain',
+    cost: {},
+    buildPoints: 20,
+    workers: 0,
+    color: 0xa89878,
+    height: 0,
+    placement: 'land',
   },
   {
     id: 'dig',

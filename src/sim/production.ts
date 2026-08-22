@@ -4,15 +4,18 @@ import { ResourceKind, defOf } from '../data/buildings'
 import {
   CROP_GROW_TICKS,
   DUMP_ADD_PER_UNIT,
+  LOAD_CAP,
   PADDY_MAX_DEPTH,
   PADDY_MIN_DEPTH,
   PLANT_DIE_TICKS,
   PUMP_DRAW_PER_UNIT,
   SOIL_GROW_THRESHOLD,
+  TICKS_PER_DAY,
   TREE_GROW_TICKS,
 } from '../data/constants'
 import { MoistureSource } from './irrigation'
 import { intakeOf } from './structures'
+import { Logistics } from './logistics'
 
 const VEG_INTERVAL = 10
 
@@ -72,8 +75,9 @@ export function updateProduction(world: World): MoistureSource[] {
       continue
     }
     const outs = Object.keys(recipe.out) as ResourceKind[]
-    if (outs.length > 0 && outs.every((k) => world.stock[k] >= world.capacity)) {
-      b.status = '在庫が満杯'
+    if (outs.length > 0 && b.load >= LOAD_CAP) {
+      // 荷置き場が一杯。蔵が満杯なのか、運び出せないのかで言い分けると原因が分かる
+      b.status = outs.every((k) => world.stock[k] >= world.capacity) ? '蔵が満杯' : '荷が捌けない'
       continue
     }
 
@@ -88,7 +92,11 @@ export function updateProduction(world: World): MoistureSource[] {
     }
     b.progress = 0
     if (recipe.in) world.takeStock(recipe.in)
-    for (const k of outs) world.addStock(k, recipe.out[k] ?? 0)
+    // 出来高はいったん建物の荷置き場へ。蔵へ流れるのは運べる量だけ（logistics.ts）
+    for (const k of outs) {
+      b.load += recipe.out[k] ?? 0
+      b.loadKind = k
+    }
 
     // --- 完成時の副作用 ---
     switch (def.kind) {
@@ -154,6 +162,23 @@ export function updateVegetation(world: World): void {
         treeGrowth[i] = 0
         treeDry[i] = 0
       }
+    }
+  }
+}
+
+/**
+ * 荷置き場から蔵へ荷を流す。1 tick に流せるのは「1 日に運べる量」の 1/240。
+ * 蔵が満杯なら荷はその場に残る（addStock が入った分だけを返す）。
+ */
+export function moveLoads(world: World, logistics: Logistics): void {
+  for (const b of world.buildings) {
+    if (!b.built || b.load <= 0 || b.loadKind === '') continue
+    const per = logistics.rateOf(b.id) / TICKS_PER_DAY
+    const put = world.addStock(b.loadKind, Math.min(b.load, per))
+    b.load -= put
+    if (b.load <= 1e-9) {
+      b.load = 0
+      b.loadKind = ''
     }
   }
 }

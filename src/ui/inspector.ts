@@ -1,7 +1,8 @@
 import { World } from '../core/world'
 import type { Building, Citizen } from '../core/world'
 import { defOf } from '../data/buildings'
-import { CROP_GROW_TICKS, FLOODGATE_MAX_HEIGHT } from '../data/constants'
+import { CROP_GROW_TICKS, FLOODGATE_MAX_HEIGHT, LOAD_CAP, ROUTE_RATE } from '../data/constants'
+import { Logistics, ROUTE_LABEL } from '../sim/logistics'
 import { demolish, setGateHeight } from '../sim/structures'
 
 type Selection = { kind: 'building'; id: number } | { kind: 'citizen'; id: number } | null
@@ -27,7 +28,10 @@ export class Inspector {
   private key = ''
   private dyn: HTMLElement | null = null
 
-  constructor(private readonly world: World) {
+  constructor(
+    private readonly world: World,
+    private readonly logistics: Logistics,
+  ) {
     this.el.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('button')
       if (!btn) return
@@ -114,6 +118,13 @@ export class Inspector {
       const goal = crop ? CROP_GROW_TICKS : def.recipe.ticks
       parts.push(bar(crop ? '生育' : '生産', b.progress / goal))
       parts.push(`<div class="cost">${b.status || '待機中'}</div>`)
+    }
+    if (def.recipe && Object.keys(def.recipe.out).length > 0) {
+      const route = this.logistics.routeOf(b.id)
+      parts.push(
+        `<div class="cost">荷 ${Math.floor(b.load)} / ${LOAD_CAP}` +
+          ` ・ ${ROUTE_LABEL[route]} ${ROUTE_RATE[route]}／日</div>`,
+      )
     }
     if (def.workers > 0) parts.push(`<div class="cost">働き手 ${b.workers.length} / ${def.workers}</div>`)
     if (def.storage) parts.push(`<div class="cost">保管容量 +${def.storage}</div>`)

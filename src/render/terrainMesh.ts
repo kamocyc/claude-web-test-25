@@ -14,6 +14,7 @@ const ROCK = new THREE.Color(0x8a8577)
 const SIDE_LOWER = [0, 1, 1, 0, 1, 0]
 
 // 毎フレーム呼ばれる可能性があるので、色の一時オブジェクトは使い回す
+const ROAD = new THREE.Color(0xbfae8c)
 const SCRATCH_TOP = new THREE.Color()
 const SCRATCH_SIDE = new THREE.Color()
 const SCRATCH_LOWER = new THREE.Color()
@@ -156,6 +157,7 @@ export class TerrainMesh {
       top.copy(TOP_DRY).lerp(TOP_WET, wet)
       if (this.isShore(i)) top.lerp(SAND, 0.5)
     }
+    if (grid.road[i]) top.lerp(ROAD, 0.8) // 踏み固めた道
     // 高いところほど明るく、列ごとに少し揺らぐ
     const tint = (0.88 + Math.min(1, grid.ground[i] / 16) * 0.22) * (0.94 + jitter(i) * 0.12)
     top.multiplyScalar(tint)

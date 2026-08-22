@@ -2,6 +2,7 @@ import { World } from '../core/world'
 import type { Building } from '../core/world'
 import { BuildingDef, defOf } from '../data/buildings'
 import {
+  BOAT_MIN_DEPTH,
   DAM_RESIST,
   FLOODGATE_MAX_HEIGHT,
   MAX_Z,
@@ -35,6 +36,16 @@ export function canPlace(world: World, def: BuildingDef, i: number): PlaceCheck 
       // 水田は水を張った土地に置く。深いところには置けない
       if (water.depth[i] > PADDY_MAX_DEPTH) return { ok: false, reason: '水が深すぎる' }
       break
+    case 'nearBoatWater': {
+      // 船着場は舟の通れる深さの水に面していること
+      let deep = false
+      grid.forEachNeighbor(i, (n) => {
+        if (water.depth[n] >= BOAT_MIN_DEPTH) deep = true
+      })
+      if (water.depth[i] > 0.3) return { ok: false, reason: '水中には建てられない' }
+      if (!deep) return { ok: false, reason: '隣に舟の通れる水路が必要' }
+      break
+    }
     case 'nearWater': {
       let near = false
       grid.forEachNeighbor(i, (n) => {
@@ -48,6 +59,7 @@ export function canPlace(world: World, def: BuildingDef, i: number): PlaceCheck 
       break
   }
   if (def.kind === 'dig' && grid.natural[i] <= 0) return { ok: false, reason: 'これ以上掘れない' }
+  if (def.kind === 'road' && grid.road[i]) return { ok: false, reason: 'すでに道がある' }
   if (def.kind !== 'dig' && grid.ground[i] + 1 >= MAX_Z) return { ok: false, reason: '高すぎる' }
   if (!world.hasStock(def.cost)) return { ok: false, reason: '資材が足りない' }
   return { ok: true }
@@ -99,6 +111,12 @@ export function completeBuild(world: World, b: Building): void {
       grid.barrier[b.i] = b.gateHeight
       grid.flowResist[b.i] = DAM_RESIST
       displaceWater(world, b.i)
+      break
+    }
+    case 'road': {
+      // 道は地形の属性。建設枠を潰さないよう、完成したら建物としては消す
+      grid.road[b.i] = 1
+      world.removeBuilding(b)
       break
     }
     case 'dig': {

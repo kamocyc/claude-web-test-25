@@ -4,7 +4,9 @@ import { World } from '../src/core/world'
 import { Game } from '../src/core/game'
 import { defOf } from '../src/data/buildings'
 import { canPlace, completeBuild, place } from '../src/sim/structures'
-import { updateProduction } from '../src/sim/production'
+import { moveLoads, updateProduction } from '../src/sim/production'
+import { Logistics } from '../src/sim/logistics'
+import { PathFinder } from '../src/sim/pathfinding'
 import { SeasonKind } from '../src/sim/season'
 import {
   CROP_GROW_TICKS,
@@ -26,8 +28,14 @@ function paddyWorld(depth: number) {
   return { world, b, i }
 }
 
-/** 働き手が出勤している前提で生産だけを n tick 進める */
+/**
+ * 働き手が出勤している前提で生産だけを n tick 進める。
+ * 出来高は荷置き場に積まれるので、蔵への搬出（moveLoads）も回す。
+ */
 function work(world: World, ticks: number, depth?: number): void {
+  const path = new PathFinder(world.grid)
+  path.refresh(world.water)
+  const logistics = new Logistics(world.grid.size)
   for (let t = 0; t < ticks; t++) {
     for (const b of world.buildings) b.staffPresent = 1
     if (depth !== undefined) {
@@ -35,7 +43,12 @@ function work(world: World, ticks: number, depth?: number): void {
         if (b.defId === 'paddy') world.water.depth[b.i] = depth
       }
     }
+    if (t % 30 === 0) {
+      path.refresh(world.water)
+      logistics.recompute(world, path)
+    }
     updateProduction(world)
+    moveLoads(world, logistics)
   }
 }
 
@@ -156,7 +169,9 @@ function canalScenario(dig: boolean): {
   // 住民の通勤事情に左右されないよう、働き手は出勤している前提で生産だけ回す
   for (let t = 0; t < 400; t++) {
     for (const b of w.buildings) b.staffPresent = 1
+    if (t % 30 === 0) g.logistics.recompute(w, g.path)
     updateProduction(w)
+    moveLoads(w, g.logistics)
   }
   return {
     site,

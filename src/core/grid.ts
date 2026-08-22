@@ -30,6 +30,8 @@ export class Grid {
   readonly flowResist: Float64Array
   /** マップ端の排水口フラグ */
   readonly isDrain: Uint8Array
+  /** 道が敷かれているか（荷運びが速くなる） */
+  readonly road: Uint8Array
 
   constructor(w: number, h: number) {
     this.w = w
@@ -42,6 +44,7 @@ export class Grid {
     this.ceiling = new Uint8Array(this.size).fill(MAX_Z)
     this.flowResist = new Float64Array(this.size)
     this.isDrain = new Uint8Array(this.size)
+    this.road = new Uint8Array(this.size)
   }
 
   idx(x: number, y: number): number {

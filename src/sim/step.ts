@@ -3,6 +3,7 @@ import {
   DRY_EPSILON,
   EVAP_RATE,
   GROWTH_STOCK_RATIO,
+  LOGISTICS_RECALC_TICKS,
   MOISTURE_RECALC_TICKS,
   RAIN_RATE,
   SEASON_OMEN_DAYS,
@@ -12,11 +13,17 @@ import {
 import { MoistureSource } from './irrigation'
 import { PathFinder } from './pathfinding'
 import { updateCitizens } from './citizens'
-import { updateProduction, updateVegetation } from './production'
+import { moveLoads, updateProduction, updateVegetation } from './production'
+import { Logistics } from './logistics'
 import { SEASON_LABEL, SEASON_OMEN } from './season'
 
 /** 1 tick の実行順序 */
-export function stepWorld(world: World, path: PathFinder, moisture: MoistureSource[]): MoistureSource[] {
+export function stepWorld(
+  world: World,
+  path: PathFinder,
+  logistics: Logistics,
+  moisture: MoistureSource[],
+): MoistureSource[] {
   world.tick++
   const wasKind = world.season.kind
   const newDay = world.season.advance(world.rng)
@@ -57,10 +64,14 @@ export function stepWorld(world: World, path: PathFinder, moisture: MoistureSour
   if (world.tick % 5 === 0) path.refresh(world.water)
   updateCitizens(world, path)
 
-  // 6. 生産（住民の出勤状況を使う）
-  const nextMoisture = updateProduction(world)
+  // 6. 物流（蔵までの道のりと水路。重いので数 tick に 1 回）
+  if (world.tick % LOGISTICS_RECALC_TICKS === 0) logistics.recompute(world, path)
 
-  // 7. 日替わり
+  // 7. 生産（住民の出勤状況を使う）と、荷置き場から蔵への搬出
+  const nextMoisture = updateProduction(world)
+  moveLoads(world, logistics)
+
+  // 8. 日替わり
   if (newDay) onNewDay(world)
   return nextMoisture
 }
