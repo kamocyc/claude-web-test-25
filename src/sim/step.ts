@@ -2,12 +2,15 @@ import { World } from '../core/world'
 import {
   DRY_EPSILON,
   EVAP_RATE,
-  GROWTH_STOCK_RATIO,
+  GROWTH_RESERVE_DAYS,
   LOGISTICS_RECALC_TICKS,
   MOISTURE_RECALC_TICKS,
+  NEED_DECAY,
   RAIN_RATE,
   SEASON_OMEN_DAYS,
   TICK_DT,
+  TICKS_PER_DAY,
+  WHEAT_FOOD_VALUE,
   WATER_SUBSTEPS,
 } from '../data/constants'
 import { MoistureSource } from './irrigation'
@@ -96,19 +99,27 @@ function onNewDay(world: World): void {
 
   // 人が増えるのは平年だけ。大雨や日照りのさなかに口が増えると、
   // 蓄えを食い潰して村ごと倒れる（実際、洪水の最中に人口が増えて全滅していた）
-  const cap = Math.max(1, world.capacity)
-  const food = world.stock.meal + world.stock.wheat
-  const room = world.housing - world.citizens.length
-  if (
-    room > 0 &&
-    world.season.kind === 'normal' &&
-    world.stock.water >= cap * GROWTH_STOCK_RATIO &&
-    food >= cap * GROWTH_STOCK_RATIO
-  ) {
+  if (canGrowPopulation(world)) {
     const c = world.spawnCitizen(world.startI)
     world.pushLog(`${c.name} が仲間に加わった`)
   }
   if (world.citizens.length === 0) world.pushLog('村は絶えた…')
+}
+
+/** 空き寝床と平年、現在の人口を一定日数支えられる備蓄がそろっているか。 */
+export function canGrowPopulation(world: World): boolean {
+  const population = Math.max(1, world.citizens.length)
+  const reserveTicks = GROWTH_RESERVE_DAYS * TICKS_PER_DAY
+  const waterNeeded = population * reserveTicks * NEED_DECAY.water
+  const foodNeeded = population * reserveTicks * NEED_DECAY.food
+  const food = world.stock.meal + world.stock.wheat * WHEAT_FOOD_VALUE
+
+  return (
+    world.housing > world.citizens.length &&
+    world.season.kind === 'normal' &&
+    world.stock.water >= waterNeeded &&
+    food >= foodNeeded
+  )
 }
 
 /**

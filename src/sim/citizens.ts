@@ -5,6 +5,7 @@ import {
   CITIZEN_SPEED,
   NEED_DECAY,
   NEED_SEEK_THRESHOLD,
+  WHEAT_FOOD_VALUE,
   STARVE_TICKS,
   TICK_DT,
 } from '../data/constants'
@@ -290,7 +291,7 @@ function act(world: World, path: PathFinder, c: Citizen): void {
         c.needs.food = 1
       } else if (world.stock.wheat >= 1) {
         world.stock.wheat -= 1
-        c.needs.food = Math.min(1, c.needs.food + 0.5)
+        c.needs.food = Math.min(1, c.needs.food + WHEAT_FOOD_VALUE)
       }
       c.task = 'idle'
       break

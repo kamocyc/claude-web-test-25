@@ -73,10 +73,11 @@ export const JOB_PRIORITIES = [0, 1, 2] as const
 export const JOB_PRIORITY_NORMAL = 1
 export const JOB_PRIORITY_LABEL = ['低', '並', '高'] as const
 export const STARVE_TICKS = TICKS_PER_DAY * 2 // 需要 0 が続いて死ぬまで
-// 人が増えるのに要る備蓄の割合。蔵が満ちるまで増えない、という重い条件にしてある。
-// 荒天が 12〜20 日も続くと、そのあいだ村はほぼ何も穫れずに蓄えを食う。
-// 軽い条件で人が増えると、次の大雨で村ごと飢えて全滅する。
-export const GROWTH_STOCK_RATIO = 0.8 // 人口増加に必要な備蓄割合
+// 現在の人口をこの日数だけ維持できる備蓄があると人が増える。
+// 必要量は NEED_DECAY から算出するため、消費速度の変更にも追従する。
+export const GROWTH_RESERVE_DAYS = 3
+// 麦 1 個が満たす食料需要。米 1 個 = 1 に対し、麦は半分。
+export const WHEAT_FOOD_VALUE = 0.5
 
 // --- 植生 -----------------------------------------------------------------
 export const TREE_GROW_TICKS = TICKS_PER_DAY * 6
