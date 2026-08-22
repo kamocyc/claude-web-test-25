@@ -11,6 +11,7 @@ import { Ghost } from './render/ghost'
 import { Hud } from './ui/hud'
 import { BuildMenu } from './ui/buildMenu'
 import { Inspector } from './ui/inspector'
+import { Roster } from './ui/roster'
 import { deserializeInto, loadFromStorage, saveToStorage, serialize } from './save/save'
 import { createSampleGame } from './data/sampleTown'
 
@@ -59,6 +60,26 @@ const hud = new Hud(
   },
   (scale) => world.season.setSevereScale(scale),
 )
+/** 住民を選んで右のパネルに出し、一覧の行にも印を付ける。寄るのは一覧から選んだときだけ */
+function pickCitizen(c: { id: number; i: number }, focus: boolean): void {
+  const citizen = world.citizens.find((x) => x.id === c.id)
+  if (!citizen) return
+  menu.select(null)
+  inspector.selectCitizen(citizen)
+  roster.select(citizen.id)
+  if (focus) {
+    centerOn(citizen.i)
+    view.dist = Math.min(view.dist, 26)
+  }
+}
+
+const roster = new Roster(world, (c) => pickCitizen(c, true))
+const peopleBtn = document.getElementById('people-btn') as HTMLButtonElement
+peopleBtn.addEventListener('click', () => {
+  peopleBtn.classList.toggle('active', roster.toggle())
+  roster.update()
+})
+
 let selectedDef: BuildingDef | null = null
 const menu = new BuildMenu((def) => {
   selectedDef = def
@@ -74,6 +95,7 @@ function centerOn(i: number): void {
 /** ワールドを差し替えた後に描画側とカメラを合わせ直す */
 function afterLoad(): void {
   inspector.clear()
+  roster.select(-1)
   terrain.rebuildAll()
   game.path.refresh(world.water)
   centerOn(world.startI)
@@ -152,6 +174,7 @@ function onClick(): void {
   const b = world.buildingOn(hover)
   if (b) {
     inspector.selectBuilding(b)
+    roster.select(-1)
     return
   }
   const cx = world.grid.xOf(hover) + 0.5
@@ -165,8 +188,12 @@ function onClick(): void {
       best = c
     }
   }
-  if (best) inspector.selectCitizen(best)
-  else inspector.clear()
+  if (best) {
+    pickCitizen(best, false)
+  } else {
+    inspector.clear()
+    roster.select(-1)
+  }
 }
 
 function updateGhost(): void {
@@ -243,6 +270,7 @@ function loop(now: number): void {
   hud.update(world)
   menu.update(world)
   inspector.update()
+  roster.update()
   if (selectedDef) updateGhost()
 }
 requestAnimationFrame(loop)

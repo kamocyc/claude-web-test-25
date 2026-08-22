@@ -26,11 +26,43 @@ canvas { display: block; width: 100vw; height: 100vh; }
   backdrop-filter: blur(6px);
 }
 .panel h2 { margin: 0 0 8px; font-size: 13px; color: var(--muted); font-weight: 600; }
-.top { top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; }
+.top {
+  top: 12px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 10px; align-items: center;
+  /* 表示が増えて画面からはみ出すと、速度ボタンが押せなくなる。狭ければ折り返す */
+  max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center;
+}
+#resources { flex-wrap: wrap; }
 .left { top: 12px; left: 12px; width: 210px; max-height: calc(100vh - 24px); overflow-y: auto; }
 .right { top: 12px; right: 12px; width: 240px; }
 .bottom { left: 12px; bottom: 12px; width: 300px; max-height: 130px; overflow-y: auto; font-size: 12px; color: var(--muted); }
 .hidden { display: none; }
+.row.wrap { flex-wrap: wrap; gap: 4px; }
+
+/* 住民一覧 */
+.roster {
+  right: 12px; bottom: 12px; width: 300px;
+  max-height: 46vh; display: flex; flex-direction: column;
+}
+#roster-list { overflow-y: auto; margin-top: 6px; }
+.chip.bad { background: rgba(217, 106, 90, 0.25); color: #f0b4aa; }
+.chip.warn { background: rgba(224, 163, 74, 0.2); color: var(--warn); }
+.prow {
+  display: grid; grid-template-columns: 3.4em 5.4em 1fr; gap: 4px 6px;
+  width: 100%; text-align: left; align-items: baseline;
+  background: none; border: 1px solid transparent; border-radius: 5px;
+  color: var(--text); font: inherit; font-size: 12px; padding: 3px 5px; cursor: pointer;
+}
+.prow:hover { background: rgba(255,255,255,0.06); }
+.prow.on { border-color: var(--accent); }
+.prow.dying { background: rgba(217, 106, 90, 0.12); }
+.prow .pjob, .prow .ptask { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pmarks { display: flex; gap: 4px; flex-wrap: wrap; margin: 4px 0; }
+.prow .pmarks { grid-column: 1 / -1; margin: 0; }
+.bad-text { color: #f0b4aa; }
+.pmarks i { font-style: normal; font-size: 11px; padding: 0 5px; border-radius: 999px; }
+.pmarks i.bad { background: rgba(217, 106, 90, 0.25); color: #f0b4aa; }
+.pmarks i.warn { background: rgba(224, 163, 74, 0.18); color: var(--warn); }
 
 .row { display: flex; gap: 8px; align-items: center; }
 .sep { width: 1px; height: 20px; background: var(--line); }
@@ -53,7 +85,7 @@ canvas { display: block; width: 100vw; height: 100vh; }
   cursor: pointer;
   font: inherit;
 }
-#speed button.active, #harsh button.active { background: var(--accent); color: #05222a; border-color: transparent; }
+#storage button.active, #speed button.active, #harsh button.active { background: var(--accent); color: #05222a; border-color: transparent; }
 #harsh button { padding: 3px 7px; }
 
 .bcat { margin-bottom: 10px; }

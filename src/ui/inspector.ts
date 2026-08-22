@@ -5,18 +5,17 @@ import { CROP_GROW_TICKS, FLOODGATE_MAX_HEIGHT, LOAD_CAP, ROUTE_RATE } from '../
 import { Logistics, ROUTE_LABEL } from '../sim/logistics'
 import { demolish, setGateHeight } from '../sim/structures'
 import { canFlood } from '../sim/flood'
+import {
+  AILMENT_LABEL,
+  AILMENT_WARN,
+  TASK_LABEL,
+  ailmentsOf,
+  daysText,
+  jobNameOf,
+  ticksToDeath,
+} from '../sim/people'
 
 type Selection = { kind: 'building'; id: number } | { kind: 'citizen'; id: number } | null
-
-const TASK_LABEL: Record<string, string> = {
-  idle: '手すき',
-  drink: '水を飲みに行く',
-  eat: '食事に行く',
-  sleep: '休んでいる',
-  work: '働いている',
-  build: '建設している',
-  fight: '火を消している',
-}
 
 /**
  * 右側の選択パネル。水門の堰高もここで変える。
@@ -144,13 +143,26 @@ export class Inspector {
   }
 
   private citizenBody(c: Citizen): string {
-    const job = c.jobId >= 0 ? this.world.buildingById(c.jobId) : undefined
-    return [
-      `<div class="cost">${TASK_LABEL[c.task] ?? ''}${job ? ` — ${defOf(job.defId).name}` : ''}</div>`,
-      bar('水', c.needs.water),
-      bar('食料', c.needs.food),
-      bar('休息', c.needs.sleep),
-    ].join('')
+    const parts = [
+      `<div class="cost">${jobNameOf(this.world, c)} ・ ${TASK_LABEL[c.task]}</div>`,
+    ]
+    const bad = ailmentsOf(c)
+    if (bad.length > 0) {
+      const marks = bad
+        .map((a) =>
+          a.severe
+            ? `<i class="bad">${AILMENT_LABEL[a.kind]}</i>`
+            : `<i class="warn">${AILMENT_WARN[a.kind]}</i>`,
+        )
+        .join('')
+      parts.push(`<div class="pmarks">${marks}</div>`)
+    }
+    const left = ticksToDeath(c)
+    if (left !== null) {
+      parts.push(`<div class="cost bad-text">このままだと あと${daysText(left)} で力尽きる</div>`)
+    }
+    parts.push(bar('水', c.needs.water), bar('食料', c.needs.food), bar('休息', c.needs.sleep))
+    return parts.join('')
   }
 }
 

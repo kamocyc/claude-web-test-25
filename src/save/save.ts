@@ -148,7 +148,8 @@ export function deserializeInto(world: World, json: string): boolean {
   world.sources = data.sources
   world.startI = data.startI
   world.buildings = data.buildings
-  world.citizens = data.citizens
+  // 古いセーブには理由が入っていない
+  world.citizens = data.citizens.map((c) => ({ ...c, starveKind: c.starveKind ?? '' }))
   world.nextBuildingId = data.nextBuildingId
   world.nextCitizenId = data.nextCitizenId
   world.log = data.log

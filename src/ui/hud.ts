@@ -1,6 +1,7 @@
 import { World } from '../core/world'
 import { RESOURCES, RESOURCE_LABEL } from '../data/buildings'
 import { SEASON_LABEL, severeDayRange } from '../sim/season'
+import { AILMENTS, AILMENT_LABEL, summarize } from '../sim/people'
 
 export type StorageAction = 'save' | 'load' | 'sample'
 
@@ -9,11 +10,13 @@ export class Hud {
   private readonly resources = document.getElementById('resources') as HTMLElement
   private readonly season = document.getElementById('season') as HTMLElement
   private readonly population = document.getElementById('population') as HTMLElement
+  private readonly trouble = document.getElementById('trouble') as HTMLElement
   private readonly logBox = document.getElementById('log') as HTMLElement
   private lastLog = ''
   private lastResources = ''
   private lastSeason = ''
   private lastScale = 0
+  private lastTrouble = ''
   private readonly harshBox = document.getElementById('harsh') as HTMLElement
 
   constructor(
@@ -66,6 +69,17 @@ export class Hud {
       this.season.className = `chip ${s.kind}`
       this.season.textContent = season.split('|')[0]
       this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
+    }
+
+    // 需要が尽きている人数は、一覧を開いていなくても目に入るようにする
+    const people = summarize(world)
+    const trouble = AILMENTS.filter((k) => people.severe[k] > 0)
+      .map((k) => `${AILMENT_LABEL[k]} ${people.severe[k]}`)
+      .join(' ・ ')
+    if (trouble !== this.lastTrouble) {
+      this.lastTrouble = trouble
+      this.trouble.textContent = trouble
+      this.trouble.classList.toggle('hidden', trouble === '')
     }
 
     // 荒天の長さは読み込みでも変わるので、押した瞬間ではなく世界の値を見て塗る

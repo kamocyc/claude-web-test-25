@@ -67,6 +67,8 @@ export interface Citizen {
   py: number
   needs: CitizenNeeds
   starveTicks: number
+  /** 尽きている需要（力尽きた理由になる）。'' = 足りている */
+  starveKind: '' | 'water' | 'food'
   jobId: number
   task: TaskKind
   taskTarget: number
@@ -210,6 +212,7 @@ export class World {
       py: this.grid.yOf(i) + 0.5,
       needs: { water: 1, food: 1, sleep: 1 },
       starveTicks: 0,
+      starveKind: '',
       jobId: -1,
       task: 'idle',
       taskTarget: -1,

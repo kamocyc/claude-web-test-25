@@ -16,12 +16,14 @@
       <div class="row">
         <span id="season" class="chip"></span>
         <span id="population" class="chip"></span>
+        <span id="trouble" class="chip bad hidden"></span>
       </div>
       <div class="sep"></div>
       <div class="row" id="storage">
         <button data-store="save">保存</button>
         <button data-store="load">読込</button>
         <button data-store="sample" title="村ができあがった状態を読み込む">サンプル</button>
+        <button id="people-btn" title="村の住民を一覧で見る（誰が飢えているか分かる）">住民</button>
       </div>
       <div class="sep"></div>
       <div class="row" id="harsh" title="大雨と日照りが何日続くか。次の季節から効く（荒天のさなかなら残りも伸び縮みする）">
@@ -50,6 +52,11 @@
     </div>
 
     <div id="inspector" class="panel right hidden"></div>
+    <div id="roster" class="panel roster hidden">
+      <h2>住民</h2>
+      <div class="row wrap" id="roster-head"></div>
+      <div id="roster-list"></div>
+    </div>
     <div id="log" class="panel bottom"></div>
     <div id="tooltip" class="tooltip hidden"></div>
     <script type="module" src="./src/main.ts"></script>

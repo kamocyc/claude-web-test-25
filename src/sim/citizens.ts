@@ -12,6 +12,7 @@ import { PathFinder } from './pathfinding'
 import { completeBuild } from './structures'
 import { fightFire } from './fire'
 import { idleByWater } from './production'
+import { deathLog } from './people'
 
 const ARRIVE_EPS = 0.06
 
@@ -73,7 +74,7 @@ export function updateCitizens(world: World, path: PathFinder): void {
     world.citizens = world.citizens.filter((x) => x !== c)
     const b = c.jobId >= 0 ? world.buildingById(c.jobId) : undefined
     if (b) b.workers = b.workers.filter((id) => id !== c.id)
-    world.pushLog(`${c.name} が力尽きた…`)
+    world.pushLog(deathLog(c))
   }
 }
 
@@ -84,8 +85,14 @@ function updateCitizen(world: World, path: PathFinder, c: Citizen, quota: BuildQ
   n.food = Math.max(0, n.food - NEED_DECAY.food)
   if (c.task !== 'sleep') n.sleep = Math.max(0, n.sleep - NEED_DECAY.sleep)
 
-  if (n.water <= 0 || n.food <= 0) c.starveTicks++
-  else c.starveTicks = 0
+  if (n.water <= 0 || n.food <= 0) {
+    c.starveTicks++
+    // 先に尽きたほうを覚えておく。力尽きたときに理由として出す
+    if (c.starveKind === '') c.starveKind = n.water <= 0 ? 'water' : 'food'
+  } else {
+    c.starveTicks = 0
+    c.starveKind = ''
+  }
   if (c.starveTicks > STARVE_TICKS) return false
 
   c.px = c.x
