@@ -7,6 +7,7 @@ import { SceneView } from './render/scene'
 import { TerrainMesh } from './render/terrainMesh'
 import { WaterMesh } from './render/waterMesh'
 import { EntityMeshes } from './render/entityMesh'
+import { BoatMeshes } from './render/boatMesh'
 import { Ghost } from './render/ghost'
 import { Hud } from './ui/hud'
 import { BuildMenu } from './ui/buildMenu'
@@ -23,12 +24,13 @@ const view = new SceneView(canvas, world.grid)
 const terrain = new TerrainMesh(world)
 const water = new WaterMesh(world)
 const entities = new EntityMeshes()
+const boats = new BoatMeshes()
 const ghost = new Ghost()
-view.scene.add(terrain.group, water.mesh, entities.group, ghost.mesh)
+view.scene.add(terrain.group, water.mesh, entities.group, boats.group, ghost.mesh)
 centerOn(world.startI)
 
 // デバッグ用に主要オブジェクトを公開する（レイヤの表示切り替えなどに使う）
-;(window as unknown as { game: unknown }).game = { game, view, terrain, water, entities }
+;(window as unknown as { game: unknown }).game = { game, view, terrain, water, entities, boats }
 
 const inspector = new Inspector(world, game.logistics)
 const hud = new Hud(
@@ -96,6 +98,7 @@ function centerOn(i: number): void {
 function afterLoad(): void {
   inspector.clear()
   roster.select(-1)
+  boats.clear()
   terrain.rebuildAll()
   game.path.refresh(world.water)
   centerOn(world.startI)
@@ -265,6 +268,7 @@ function loop(now: number): void {
   if (frame % 10 === 0) terrain.syncFromGrid()
   if (frame % 30 === 0) terrain.refreshColors()
   entities.update(world, alpha)
+  boats.update(world, game.logistics, dt * speed)
   view.setSeason(world.season)
   view.updateRain(dt)
   view.updateCamera()

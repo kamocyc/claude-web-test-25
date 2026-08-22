@@ -17,7 +17,7 @@ const WEAK = new THREE.Color(0xd96a5a)
  * 部品に単色を焼き込んで所定の位置へ置く。
  * 多面体ジオメトリは index を持たないので、マージ相手と揃うよう非 index 化しておく。
  */
-function part(source: THREE.BufferGeometry, color: number, x = 0, y = 0, z = 0): THREE.BufferGeometry {
+export function part(source: THREE.BufferGeometry, color: number, x = 0, y = 0, z = 0): THREE.BufferGeometry {
   const geo = source.index ? source.toNonIndexed() : source
   geo.translate(x, y, z)
   const n = geo.getAttribute('position').count
@@ -33,7 +33,7 @@ function part(source: THREE.BufferGeometry, color: number, x = 0, y = 0, z = 0):
   return geo
 }
 
-const box = (w: number, h: number, d: number, color: number, x = 0, base = 0, z = 0) =>
+export const box = (w: number, h: number, d: number, color: number, x = 0, base = 0, z = 0) =>
   part(new THREE.BoxGeometry(w, h, d), color, x, base + h / 2, z)
 
 const roof = (r: number, h: number, color: number, base: number) => {
@@ -42,7 +42,7 @@ const roof = (r: number, h: number, color: number, base: number) => {
   return part(g, color, 0, base + h / 2, 0)
 }
 
-const cyl = (
+export const cyl = (
   rt: number, rb: number, h: number, seg: number, color: number,
   x = 0, base = 0, z = 0,
 ) => part(new THREE.CylinderGeometry(rt, rb, h, seg), color, x, base + h / 2, z)
@@ -60,7 +60,7 @@ const log = (len: number, r: number, color: number, x: number, base: number, z: 
   return part(g, color, x, base + r, z)
 }
 
-const merge = (...parts: THREE.BufferGeometry[]) => mergeGeometries(parts, false)
+export const merge = (...parts: THREE.BufferGeometry[]) => mergeGeometries(parts, false)
 
 // --- 農村・宿場町の意匠 -----------------------------------------------------
 // 茅葺の寄棟、板壁、なまこ壁の土蔵、木組みの櫓。屋根の形と色で何の建物か分かるようにする。
@@ -362,7 +362,7 @@ function person(): THREE.BufferGeometry {
   )
 }
 
-function instanced(geom: THREE.BufferGeometry, mat: THREE.Material, max: number): THREE.InstancedMesh {
+export function instanced(geom: THREE.BufferGeometry, mat: THREE.Material, max: number): THREE.InstancedMesh {
   const m = new THREE.InstancedMesh(geom, mat, max)
   m.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
   m.count = 0

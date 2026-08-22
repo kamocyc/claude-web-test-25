@@ -13,6 +13,18 @@ import { PathFinder } from './pathfinding'
 /** 荷の運び方。舟運が段違いに太く、道の無い遠方は人が背負うしかない */
 export type RouteKind = 'boat' | 'near' | 'cart' | 'foot'
 
+/** 船着場と、それが面している水路。舟の絵を描くのにも使う */
+export interface WharfInfo {
+  id: number
+  i: number
+  /** 面している水路の連結成分 */
+  comp: number
+  /** 蔵のそばか（荷の行き先になる船着場） */
+  hub: boolean
+  /** 蔵までの陸路コスト（-1 = 遠すぎる）。いちばん蔵に近い船着場を選ぶのに使う */
+  landCost: number
+}
+
 export const ROUTE_LABEL: Record<RouteKind, string> = {
   boat: '舟運',
   near: '村の中',
@@ -50,6 +62,8 @@ export class Logistics {
   private readonly comp: Int32Array
   /** 建物 id → 経路の種類 */
   private readonly route = new Map<number, RouteKind>()
+  /** 水路に面している船着場（描画側が舟の航路を引くのに使う） */
+  private wharfList: WharfInfo[] = []
   private readonly buckets: number[][] = []
 
   constructor(size: number) {
@@ -63,6 +77,10 @@ export class Logistics {
   /** 1 日に運べる量 */
   rateOf(buildingId: number): number {
     return ROUTE_RATE[this.routeOf(buildingId)]
+  }
+  /** 舟が入れる水に面している船着場 */
+  wharves(): readonly WharfInfo[] {
+    return this.wharfList
   }
 
   /** 数十 tick に 1 回だけ回せばよい */
@@ -144,7 +162,7 @@ export class Logistics {
     route.clear()
 
     // 船着場を拾い、蔵のそばにあるものの水路成分を「蔵まで舟で行ける水路」とする
-    const wharves: { x: number; y: number; comp: number }[] = []
+    const wharves: WharfInfo[] = []
     const hubs = new Set<number>()
     for (const b of world.buildings) {
       if (!b.built || defOf(b.defId).kind !== 'wharf') continue
@@ -153,10 +171,12 @@ export class Logistics {
         if (c < 0) c = comp[n]
       })
       if (c < 0) continue // 舟が入れる深さの水に接していない
-      wharves.push({ x: grid.xOf(b.i), y: grid.yOf(b.i), comp: c })
       const lc = this.costOf(b.i, path)
-      if (lc >= 0 && lc <= NEAR_COST) hubs.add(c)
+      const hub = lc >= 0 && lc <= NEAR_COST
+      wharves.push({ id: b.id, i: b.i, comp: c, hub, landCost: lc })
+      if (hub) hubs.add(c)
     }
+    this.wharfList = wharves
 
     for (const b of world.buildings) {
       if (!b.built) continue
@@ -169,7 +189,7 @@ export class Logistics {
       const by = grid.yOf(b.i)
       for (const wf of wharves) {
         if (!hubs.has(wf.comp)) continue
-        if (Math.abs(wf.x - bx) > WHARF_RADIUS || Math.abs(wf.y - by) > WHARF_RADIUS) continue
+        if (Math.abs(grid.xOf(wf.i) - bx) > WHARF_RADIUS || Math.abs(grid.yOf(wf.i) - by) > WHARF_RADIUS) continue
         if (ROUTE_RATE.boat > ROUTE_RATE[best]) best = 'boat'
         break
       }
