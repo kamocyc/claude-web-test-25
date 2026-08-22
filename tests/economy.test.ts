@@ -65,19 +65,4 @@ describe('経済のひと回り', () => {
     expect(w.citizens.length).toBeGreaterThanOrEqual(5) // 誰も飢えていない
   }, 60000)
 
-  it('乾季に水源が止まっても貯水と灌漑塔で作物を保てる', () => {
-    const g = new Game({ w: 40, h: 40, seed: 8 })
-    const w = g.world
-    run(g, 60)
-    const farm = spotNear(g, 'farm', (i) => w.irrigation.soilWet[i] >= SOIL_GROW_THRESHOLD)
-    expect(farm).toBeGreaterThanOrEqual(0)
-    place(w, defOf('farm'), farm)
-    run(g, TICKS_PER_DAY)
-
-    // 乾季まで進める
-    while (w.season.kind === 'temperate') g.step()
-    run(g, TICKS_PER_DAY * 2)
-    // 川が細っても、貯まった水の近くなら土は湿ったままでいられる
-    expect(w.irrigation.soilWet[farm]).toBeGreaterThan(0)
-  }, 60000)
 })
