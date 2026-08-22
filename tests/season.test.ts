@@ -8,6 +8,7 @@ import {
   SEASON_DAYS,
   SEASON_OMEN_DAYS,
   SEASON_RAMP_TICKS,
+  SOURCE_STRENGTH,
   TICKS_PER_DAY,
 } from '../src/data/constants'
 
@@ -86,11 +87,11 @@ describe('季節', () => {
     s.prevKind = 'drought'
     s.kind = 'rain'
     s.elapsed = 0
-    expect(s.sourceStrength).toBeCloseTo(0, 5) // 日照りの流量から
+    expect(s.sourceStrength).toBeCloseTo(SOURCE_STRENGTH.drought, 5) // 日照りの流量から
     s.elapsed = SEASON_RAMP_TICKS / 2
-    expect(s.sourceStrength).toBeCloseTo(1.1, 5)
+    expect(s.sourceStrength).toBeCloseTo(SOURCE_STRENGTH.rain / 2, 5) // 半分まで来た
     s.elapsed = SEASON_RAMP_TICKS
-    expect(s.sourceStrength).toBeCloseTo(2.2, 5) // 大雨の流量へ
+    expect(s.sourceStrength).toBeCloseTo(SOURCE_STRENGTH.rain, 5) // 大雨の流量へ
     // 短い季節でも大半を本気の状態で過ごせるよう、繋ぎは 1 日より短い
     expect(SEASON_RAMP_TICKS).toBeLessThan(TICKS_PER_DAY)
   })
@@ -118,6 +119,46 @@ describe('季節が水に及ぼす影響', () => {
 
     forceSeason(g, 'drought', 8)
     expect(g.world.water.totalVolume()).toBeLessThan(base * 0.4) // 実測 0.23 倍
+  }, 60000)
+
+  it('大雨では氾濫原が浸かり、微高地と段丘は残る', () => {
+    const g = new Game({ w: 60, h: 60, seed: 21 })
+    forceSeason(g, 'normal', 3)
+    const { grid, water } = g.world
+
+    /**
+     * 行ごとの最低地面を基準に地形を段で分ける。
+     * mapgen の断面が 水路(+0) → 浅瀬(+1) → 氾濫原(+2、たまに +3 の微高地) → 段丘(+4 以上)
+     * なので、この段数がそのまま地形の種類になる。
+     */
+    const band = (step: number): { wet: number; depth: number } => {
+      let n = 0
+      let wet = 0
+      let sum = 0
+      for (let y = 2; y < grid.h - 2; y++) {
+        let min = 99
+        for (let x = 0; x < grid.w; x++) min = Math.min(min, grid.ground[grid.idx(x, y)])
+        for (let x = 2; x < grid.w - 2; x++) {
+          const i = grid.idx(x, y)
+          if (grid.ground[i] - min !== step) continue
+          n++
+          if (water.depth[i] > 0.05) wet++
+          sum += water.depth[i]
+        }
+      }
+      return { wet: n > 0 ? wet / n : 0, depth: n > 0 ? sum / n : 0 }
+    }
+
+    // 平年は川筋だけが濡れている
+    expect(band(2).wet).toBeLessThan(0.05)
+
+    forceSeason(g, 'rain', 6)
+    // 氾濫原は水を被る（実測 8 割、平均 0.2 m）。畑は流されるが逃げ場は残る
+    expect(band(2).wet).toBeGreaterThan(0.6)
+    expect(band(2).depth).toBeGreaterThan(0.12)
+    // 一段高い微高地と段丘は浸からない
+    expect(band(3).wet).toBeLessThan(0.05)
+    expect(band(4).wet).toBe(0)
   }, 60000)
 
   it('雨は高台に抜けない水たまりを残さない', () => {

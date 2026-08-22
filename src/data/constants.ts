@@ -100,7 +100,13 @@ export const DROUGHT_DAYS_MAX = 14
 /** 直前と違う季節を引くときの重み */
 export const SEASON_WEIGHT = { normal: 3, rain: 2, drought: 2 }
 /** 水源の流量倍率 */
-export const SOURCE_STRENGTH = { normal: 1, rain: 2.2, drought: 0 }
+/**
+ * 水源の流量倍率。
+ * 大雨は「堰が無くても氾濫原が浸かる」ところまで上げてある（実測: 6 日で氾濫原の
+ * 8 割が水を被り、平均 0.2 m。10 日で 0.3 m）。一段高い微高地と段丘は浸からないので、
+ * 逃げ場は残る。
+ */
+export const SOURCE_STRENGTH = { normal: 1, rain: 5, drought: 0 }
 /** 蒸発の倍率 */
 export const EVAP_MULT = { normal: 1, rain: 0.4, drought: 3 }
 /**
