@@ -15,14 +15,14 @@ export class Hud {
   private lastLog = ''
   private lastResources = ''
   private lastSeason = ''
-  private lastScale = 0
+  private lastScale = ''
   private lastTrouble = ''
   private readonly harshBox = document.getElementById('harsh') as HTMLElement
 
   constructor(
     onSpeed: (speed: number) => void,
     onStorage: (action: StorageAction) => void,
-    onSevere: (scale: number) => void,
+    onSevere: (kind: 'rain' | 'drought', scale: number) => void,
   ) {
     const storage = document.getElementById('storage') as HTMLElement
     storage.addEventListener('click', (e) => {
@@ -42,7 +42,7 @@ export class Hud {
     this.harshBox.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('button')
       if (!btn?.dataset.harsh) return
-      onSevere(Number(btn.dataset.harsh))
+      onSevere(btn.dataset.harsh as 'rain' | 'drought', Number(btn.dataset.scale))
     })
   }
 
@@ -83,13 +83,18 @@ export class Hud {
     }
 
     // 荒天の長さは読み込みでも変わるので、押した瞬間ではなく世界の値を見て塗る
-    if (s.severeScale !== this.lastScale) {
-      this.lastScale = s.severeScale
-      const [lo, hi] = severeDayRange(s.severeScale)
+    const scaleKey = `${s.rainScale}/${s.droughtScale}`
+    if (scaleKey !== this.lastScale) {
+      this.lastScale = scaleKey
       for (const b of this.harshBox.querySelectorAll('button')) {
-        b.classList.toggle('active', Number(b.dataset.harsh) === s.severeScale)
+        const kind = b.dataset.harsh as 'rain' | 'drought'
+        b.classList.toggle('active', Number(b.dataset.scale) === s.scaleOf(kind))
       }
-      this.harshBox.title = `大雨と日照りが ${lo}〜${hi} 日続く。次の季節から効く（荒天のさなかなら残りも伸び縮みする）`
+      const [rl, rh] = severeDayRange('rain', s.rainScale)
+      const [dl, dh] = severeDayRange('drought', s.droughtScale)
+      this.harshBox.title =
+        `大雨は ${rl}〜${rh} 日、日照りは ${dl}〜${dh} 日続く（日照りは繰り返すほど長引く）。` +
+        '次の季節から効く（そのさなかなら残りも伸び縮みする）'
     }
 
     // 件数だけで見ると、ロードで中身が入れ替わったときに更新されない

@@ -110,17 +110,23 @@ export const TREE_SPREAD_CHANCE = 0.06
 
 // --- 季節 -----------------------------------------------------------------
 // 平年・大雨・日照りをランダムに引く。キーは SeasonKind と一致させる。
-/** 季節の長さ [日]（下限, 上限）。日照りは通過するたびに下限が伸びる */
+/**
+ * 季節の長さ [日]（下限, 上限）。日照りは通過するたびに下限が伸びる。
+ *
+ * 大雨は日照りより短くしてある。日照りは蓄えを食いつぶす消耗戦なので長く効くが、
+ * 大雨は畑も道も建物も一度に止めてしまうので、同じだけ続くと立て直す前に村が終わる。
+ */
 export const SEASON_DAYS = {
   normal: [20, 28],
-  rain: [6, 10],
+  rain: [4, 7],
   drought: [6, 10],
 } as const
 export const DROUGHT_DAYS_STEP = 1
 export const DROUGHT_DAYS_MAX = 14
 /**
- * 大雨・日照りの長さの倍率の既定値。上の表は素の日数なので、実際は 12〜20 日になる。
- * ゲーム中に「荒天 短／並／長」で変えられる（Season.setSevereScale）。
+ * 大雨・日照りの長さの倍率の既定値。上の表は素の日数なので、実際は
+ * 大雨 8〜14 日、日照り 12〜20 日になる。ゲーム中に「大雨／日照り 短・並・長」で
+ * 別々に変えられる（Season.setSevereScale）。
  */
 export const SEVERE_SCALE_DEFAULT = 2
 export const SEVERE_SCALES = [1, 2, 3] as const

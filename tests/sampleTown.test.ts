@@ -87,7 +87,7 @@ describe('サンプルの村', () => {
     for (const b of dry) expect(w.irrigation.soilWet[b.i]).toBeGreaterThan(SOIL_GROW_THRESHOLD)
   }, 120000)
 
-  it('読み込んだ村には大雨が来て、その次に日照りが来る', () => {
+  it('読み込んだ村には大雨が来て、平年を挟んでから日照りが来る', () => {
     const g = createSampleGame(SIZE, SIZE)
     const s = g.world.season
     expect(s.kind).toBe('normal')
@@ -95,14 +95,15 @@ describe('サンプルの村', () => {
     expect(s.daysLeft).toBeLessThanOrEqual(3) // 見て回る猶予だけ置いてある
 
     const seen: string[] = []
-    for (let t = 0; t < TICKS_PER_DAY * 60; t++) {
+    for (let t = 0; t < TICKS_PER_DAY * 90; t++) {
       g.step()
       const k = g.world.season.kind
       if (seen[seen.length - 1] !== k) seen.push(k)
-      if (seen.length >= 3) break
+      if (seen.length >= 4) break
     }
-    expect(seen.slice(0, 3)).toEqual(['normal', 'rain', 'drought'])
-  }, 120000)
+    // 筋書きの日照りは消えず、立て直すための平年を挟んでから来る
+    expect(seen.slice(0, 4)).toEqual(['normal', 'rain', 'normal', 'drought'])
+  }, 180000)
 
   it('用水路の水が田に来ていて、稲が育っている', () => {
     const g = createSampleGame(SIZE, SIZE)

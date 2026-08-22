@@ -75,6 +75,9 @@ canvas { display: block; width: 100vw; height: 100vh; }
 .res.full b { color: var(--warn); }
 
 .label { color: var(--muted); font-size: 12px; white-space: nowrap; }
+/* 大雨と日照りで別々に選ぶので、どのボタンがどちらの組か見て分かるよう間を詰める */
+#harsh { gap: 4px; }
+#harsh button + .label { margin-left: 8px; }
 
 #speed button, #storage button, #harsh button, .bcat button {
   background: rgba(255,255,255,0.06);

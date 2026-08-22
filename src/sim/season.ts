@@ -36,6 +36,7 @@ export const SEASON_OMEN: Record<SeasonKind, string> = {
  *
  * 抽選には World の Rng を使うので、セーブを跨いでも同じ並びになる。
  * 直前と同じ季節は引かない（延々と続く日照りのような理不尽を避ける）。
+ * 荒天と荒天のあいだには必ず平年が入り、その平年は直前の荒天と同じだけは続く。
  * 次に来る季節は季節の開始時点で決まっているが、プレイヤーには残り
  * SEASON_OMEN_DAYS 日を切ってからしか見せない。備える猶予は必ず与えつつ、
  * 何が来るかは最後まで分からない、という緊張を残すため。
@@ -56,11 +57,12 @@ export class Season {
   /** 通過した日照りの数。日照りはこれに比例して長くなる */
   cycle = 0
   /**
-   * 大雨・日照りの長さの倍率（平年は変わらない）。ゲーム中に変えられる。
+   * 大雨・日照りの長さの倍率（平年は変わらない）。ゲーム中に別々に変えられる。
    * 荒天が短いと備える意味が薄れ、長いと村ごと持っていかれる。好みが分かれるので
-   * プレイヤーに委ねる。既定の 2 で 12〜20 日。
+   * プレイヤーに委ねる。既定の 2 で大雨 8〜14 日、日照り 12〜20 日。
    */
-  severeScale = SEVERE_SCALE_DEFAULT
+  rainScale = SEVERE_SCALE_DEFAULT
+  droughtScale = SEVERE_SCALE_DEFAULT
   /**
    * 次に来る季節をあらかじめ決めておく行列。サンプルの村のように
    * 「まず大雨、その次は日照り」と筋書きを与えたいときだけ使う。空なら抽選。
@@ -103,28 +105,46 @@ export class Season {
     return from + (to - from) * t
   }
 
-  /**
-   * 大雨・日照りの長さの倍率を変える。いま荒天のさなかなら、残りもその場で伸び縮みする
-   * （次の季節を待たずに手応えが変わるように）。
-   */
-  setSevereScale(scale: number): void {
-    const next = Math.max(0.25, Math.min(4, scale))
-    if (next === this.severeScale) return
-    if (this.kind !== 'normal' && this.lengthDays > 0) {
-      this.lengthDays = Math.max(1, Math.round((this.lengthDays / this.severeScale) * next))
-    }
-    this.severeScale = next
+  /** その季節にかかる長さの倍率。平年は伸び縮みしない */
+  scaleOf(kind: SeasonKind): number {
+    if (kind === 'rain') return this.rainScale
+    if (kind === 'drought') return this.droughtScale
+    return 1
   }
 
-  /** 次の季節。筋書きがあればそれを、無ければ抽選する */
+  /**
+   * 大雨か日照りの長さの倍率を変える。いまその季節のさなかなら、残りもその場で
+   * 伸び縮みする（次の季節を待たずに手応えが変わるように）。
+   */
+  setSevereScale(kind: 'rain' | 'drought', scale: number): void {
+    const next = Math.max(0.25, Math.min(4, scale))
+    const now = this.scaleOf(kind)
+    if (next === now) return
+    if (this.kind === kind && this.lengthDays > 0) {
+      this.lengthDays = Math.max(1, Math.round((this.lengthDays / now) * next))
+    }
+    if (kind === 'rain') this.rainScale = next
+    else this.droughtScale = next
+  }
+
+  /**
+   * 次の季節。筋書きがあればそれを、無ければ抽選する。
+   *
+   * 荒天の次は必ず平年を挟む。大雨の泥のまま日照りに入ると、村は立て直す間もなく
+   * 蓄えを削られて終わるだけで、備えようがない。筋書きがあっても順番を待たせるだけで、
+   * 消してしまうことはない（サンプルの「大雨のあとに日照り」は平年を挟んで叶う）。
+   */
   private pickNext(rng: Rng): SeasonKind {
+    if (this.kind !== 'normal') return 'normal'
     return this.scripted.shift() ?? drawKind(this.kind, rng)
   }
 
   /** 1 tick 進め、日が変わったら true */
   advance(rng: Rng): boolean {
     // 最初の季節ぶんもここで引く（World の構築時は rng をまだ触れないため）
-    if (this.lengthDays <= 0) this.lengthDays = drawLength(this.kind, this.cycle, this.severeScale, rng)
+    if (this.lengthDays <= 0) {
+      this.lengthDays = drawLength(this.kind, this.cycle, this.scaleOf(this.kind), rng)
+    }
     if (this.nextKind === null) this.nextKind = this.pickNext(rng)
 
     this.elapsed++
@@ -137,10 +157,16 @@ export class Season {
     }
     if (this.elapsed >= this.lengthDays * TICKS_PER_DAY) {
       if (this.kind === 'drought') this.cycle++
+      const lastDays = this.lengthDays
       this.prevKind = this.kind
       this.kind = this.nextKind
       this.elapsed = 0
-      this.lengthDays = drawLength(this.kind, this.cycle, this.severeScale, rng)
+      this.lengthDays = drawLength(this.kind, this.cycle, this.scaleOf(this.kind), rng)
+      // 荒天のあとの平年は、その荒天と同じだけは続く。長い日照りのあとに 20 日で
+      // 次が来ると蓄えが戻らないので、休みの長さは直前の荒天に合わせて伸ばす
+      if (this.kind === 'normal' && this.prevKind !== 'normal') {
+        this.lengthDays = Math.max(this.lengthDays, lastDays)
+      }
       this.nextKind = this.pickNext(rng)
     }
     return newDay
@@ -169,8 +195,9 @@ export function drawLength(kind: SeasonKind, cycle: number, scale: number, rng: 
   return kind === 'normal' ? capped : Math.max(1, Math.round(capped * scale))
 }
 
-/** その倍率で荒天が何日続くか（UI の表示用） */
-export function severeDayRange(scale: number): [number, number] {
-  const [lo, hi] = SEASON_DAYS.rain
-  return [Math.round(lo * scale), Math.round(hi * scale)]
+/** その倍率でその荒天が何日続くか（UI の表示用）。日照りは繰り返すほど延びる */
+export function severeDayRange(kind: 'rain' | 'drought', scale: number): [number, number] {
+  const [lo, hi] = SEASON_DAYS[kind]
+  const top = kind === 'drought' ? DROUGHT_DAYS_MAX : hi
+  return [Math.round(lo * scale), Math.round(top * scale)]
 }

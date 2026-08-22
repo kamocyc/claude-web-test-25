@@ -58,7 +58,7 @@ const hud = new Hud(
       world.pushLog('読み込めるセーブデータがない')
     }
   },
-  (scale) => world.season.setSevereScale(scale),
+  (kind, scale) => world.season.setSevereScale(kind, scale),
 )
 /** 住民を選んで右のパネルに出し、一覧の行にも印を付ける。寄るのは一覧から選んだときだけ */
 function pickCitizen(c: { id: number; i: number }, focus: boolean): void {

@@ -27,7 +27,10 @@ interface SaveData {
     day: number
     dayTick: number
     cycle: number
-    severeScale: number
+    /** 旧いセーブにしかない（大雨と日照りに分ける前の共通の倍率） */
+    severeScale?: number
+    rainScale: number
+    droughtScale: number
     scripted: string[]
   }
   natural: number[]
@@ -76,7 +79,8 @@ export function serialize(world: World): string {
       day: season.day,
       dayTick: season.dayTick,
       cycle: season.cycle,
-      severeScale: season.severeScale,
+      rainScale: season.rainScale,
+      droughtScale: season.droughtScale,
       scripted: [...season.scripted],
     },
     natural: Array.from(grid.natural),
@@ -143,7 +147,9 @@ export function deserializeInto(world: World, json: string): boolean {
   world.season.day = data.season.day
   world.season.dayTick = data.season.dayTick
   world.season.cycle = data.season.cycle
-  world.season.severeScale = data.season.severeScale ?? SEVERE_SCALE_DEFAULT
+  const oldScale = data.season.severeScale ?? SEVERE_SCALE_DEFAULT
+  world.season.rainScale = data.season.rainScale ?? oldScale
+  world.season.droughtScale = data.season.droughtScale ?? oldScale
   world.season.scripted = (data.season.scripted ?? []).map(seasonKind)
   world.sources = data.sources
   world.startI = data.startI

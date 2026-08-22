@@ -387,8 +387,9 @@ export function createSampleGame(w = 80, h = 80): Game {
   }
   for (let t = 0; t < TICKS_PER_DAY * 2; t++) g.step()
 
-  // 15. 季節の筋書き。読み込んで数日は平年、そのあと大雨が来て、続けて日照りになる。
+  // 15. 季節の筋書き。読み込んで数日は平年、そのあと大雨が来て、平年を挟んでから日照りになる。
   //     増水と浸水、そのあとの渇水という山と谷を続けて見られるようにしてある。
+  //     荒天のあいだには必ず平年が入る決まりなので、筋書きの日照りもその次に回る。
   const season = world.season
   season.kind = 'normal'
   season.prevKind = 'normal'
