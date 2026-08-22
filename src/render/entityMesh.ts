@@ -99,11 +99,20 @@ const BUILDING_GEOMETRY: Partial<Record<BuildingKind, () => THREE.BufferGeometry
       box(0.8, 0.12, 0.8, 0x5d4a30, 0, 0.6),
       disc(0.24, 0.06, 0xd8dde0, 0.3, 0.42, 0),
     ),
-  bakery: () =>
+  mill: () =>
     merge(
       box(0.68, 0.55, 0.68, 0xd8b46a),
       roof(0.62, 0.45, 0x9a5a44, 0.55),
       box(0.15, 0.4, 0.15, 0x8a5a4a, 0.2, 0.85, 0.2),
+    ),
+  paddy: () =>
+    merge(
+      // 畦に囲まれた水面と、そこから出た苗の列
+      box(0.98, 0.12, 0.98, 0x6b5a42),
+      box(0.86, 0.06, 0.86, 0x4f7d86, 0, 0.12),
+      box(0.72, 0.2, 0.1, 0x7fb457, 0, 0.14, -0.22),
+      box(0.72, 0.2, 0.1, 0x7fb457, 0, 0.14, 0),
+      box(0.72, 0.2, 0.1, 0x7fb457, 0, 0.14, 0.22),
     ),
   farm: () =>
     merge(
@@ -207,7 +216,7 @@ export class EntityMeshes {
         continue
       }
       const mesh = this.kinds.get(def.kind)
-      if (!mesh) continue // 堤防は地形として描かれる
+      if (!mesh) continue // 土手は地形として描かれる
       const n = this.counts.get(def.kind) ?? 0
       if (n >= MAX_PER_KIND) continue
       let sy = 1

@@ -105,7 +105,7 @@ function decideTask(world: World, path: PathFinder, c: Citizen, quota: BuildQuot
       travelTo(world, path, c, 'sleep', (b) => b.built && defOf(b.defId).kind === 'house')) return
   if (n.water < NEED_SEEK_THRESHOLD && world.stock.water > 0 &&
       travelTo(world, path, c, 'drink', (b) => b.built && !!defOf(b.defId).storage)) return
-  if (n.food < NEED_SEEK_THRESHOLD && (world.stock.bread > 0 || world.stock.wheat > 0) &&
+  if (n.food < NEED_SEEK_THRESHOLD && (world.stock.meal > 0 || world.stock.wheat > 0) &&
       travelTo(world, path, c, 'eat', (b) => b.built && !!defOf(b.defId).storage)) return
 
   // 工事が残っていれば、職場があっても何人かは建設に回る
@@ -204,8 +204,8 @@ function act(world: World, path: PathFinder, c: Citizen): void {
       c.task = 'idle'
       break
     case 'eat':
-      if (world.stock.bread >= 1) {
-        world.stock.bread -= 1
+      if (world.stock.meal >= 1) {
+        world.stock.meal -= 1
         c.needs.food = 1
       } else if (world.stock.wheat >= 1) {
         world.stock.wheat -= 1

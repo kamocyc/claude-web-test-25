@@ -20,10 +20,10 @@ export const WALKABLE_MAX_DEPTH = 1.0 // これより深い水は歩けない
 export const MAX_STEP = 1 // 登れる段差
 
 // --- 水利設備 -------------------------------------------------------------
-export const PUMP_MIN_DEPTH = 0.5 // 揚水ポンプの稼働に必要な取水口水深
+export const PUMP_MIN_DEPTH = 0.5 // 踏車の稼働に必要な取水口水深
 export const PUMP_DRAW_PER_UNIT = 0.02 // 水 1 個の生産で減る水深
 export const DUMP_ADD_PER_UNIT = 0.02 // 放水設備が水 1 個で足す水深
-export const DAM_RESIST = 0.3 // ダム/水門の通水抵抗
+export const DAM_RESIST = 0.3 // 堰/水門の通水抵抗
 export const FLOODGATE_MAX_HEIGHT = 3
 
 // --- 灌漑 -----------------------------------------------------------------
@@ -34,6 +34,11 @@ export const MOISTURE_RECALC_TICKS = 30
 export const SOIL_WET_RATE = 0.02 // 湿る速さ（/tick）
 export const SOIL_DRY_RATE = 0.004 // 乾く速さ（/tick）
 export const SOIL_GROW_THRESHOLD = 0.5 // 植物が育つ土壌水分
+
+// --- 稲作 -----------------------------------------------------------------
+// 稲は土壌水分ではなく「田に張った水」で育つ。畑（麦）とはここが違う。
+export const PADDY_MIN_DEPTH = 0.05 // これを割ると稲は枯れていく
+export const PADDY_MAX_DEPTH = 1.0 // これを超えると水没して生育が止まる（枯れはしない）
 
 // --- 住民 -----------------------------------------------------------------
 export const CITIZEN_SPEED = 2.2 // [m/s]

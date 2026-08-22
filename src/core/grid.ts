@@ -7,7 +7,7 @@ import { MAX_Z } from '../data/constants'
  *   水は列ごとに 1 本の連続した水柱としてのみ存在する（Timberborn と同じ扱い）。
  *
  * ground は「地面から連続するソリッド」の高さ。natural（地形。掘削で減る）と
- * levee（その上に積まれた堤防）の和。ceiling は地面から浮いたソリッド（橋等）の
+ * levee（その上に積まれた土手）の和。ceiling は地面から浮いたソリッド（橋等）の
  * 下端で、水位の上限になるだけで底面は変えない。
  */
 export class Grid {
@@ -18,11 +18,11 @@ export class Grid {
 
   /** 自然地形の高さ（掘削で減少） */
   readonly natural: Uint8Array
-  /** 地形の上に積まれた堤防ブロック数 */
+  /** 地形の上に積まれた土手ブロック数 */
   readonly levee: Uint8Array
   /** natural + levee（毎回足さずに済むようキャッシュ） */
   readonly ground: Uint8Array
-  /** ダム/水門による堰高 */
+  /** 堰/水門による堰高 */
   readonly barrier: Uint8Array
   /** 浮いたソリッドの下端（無ければ maxZ） */
   readonly ceiling: Uint8Array

@@ -70,7 +70,7 @@ function damAcross(g: Game, row: number): number {
  * 「もう町ができている」状態のゲームを作る。
  *
  * 川を堰き止めて貯水池を作り、水を汲み、木を挽き、湿った土で麦を育ててパンを焼く、
- * という一巡が回っているところまで進めてある。乾いた高台には灌漑塔を建てて、
+ * という一巡が回っているところまで進めてある。乾いた高台には用水櫓を建てて、
  * 灌漑で耕地が広がる様子も見えるようにしてある。
  */
 export function createSampleGame(w = 80, h = 80): Game {
@@ -105,7 +105,7 @@ export function createSampleGame(w = 80, h = 80): Game {
   build(g, 'storage', spotNear(g, room('storage')))
   build(g, 'lumberjack', spotNear(g, room('lumberjack')))
   build(g, 'sawmill', spotNear(g, room('sawmill')))
-  build(g, 'bakery', spotNear(g, room('bakery')))
+  build(g, 'mill', spotNear(g, room('mill')))
   for (let n = 0; n < 4; n++) {
     build(
       g,
@@ -117,7 +117,7 @@ export function createSampleGame(w = 80, h = 80): Game {
     )
   }
 
-  // 4. 乾いた高台に灌漑塔を建て、その足元にも畑を作る（灌漑の効果が見える配置）
+  // 4. 乾いた高台に用水櫓を建て、その足元にも畑を作る（灌漑の効果が見える配置）
   const tower = spotNear(
     g,
     (i) => world.irrigation.moisture[i] === 0 && onLand('irrigation')(i),
@@ -134,7 +134,7 @@ export function createSampleGame(w = 80, h = 80): Game {
   world.stock.log = 45
   world.stock.plank = 30
   world.stock.wheat = 12
-  world.stock.bread = 70
+  world.stock.meal = 70
   world.stock.water = 80
   for (let t = 0; t < TICKS_PER_DAY * 3; t++) g.step()
   world.log = []

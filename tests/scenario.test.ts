@@ -219,7 +219,7 @@ function droughtScenario(opts: {
   w.season.lengthDays = 20 // 試験中に季節が変わらないようにする
   w.season.cycle = 9
   for (let n = 0; n < 15; n++) w.spawnCitizen(w.startI)
-  w.stock.bread = 400
+  w.stock.meal = 400
   if (opts.openGatesAtDrought) for (const b of gates) setGateHeight(w, b, 0)
 
   run(g, TICKS_PER_DAY * 11)

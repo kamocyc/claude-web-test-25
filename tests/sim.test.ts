@@ -9,7 +9,7 @@ function hash(game: Game): number {
   const w = game.world
   let s = w.citizens.length * 31 + w.buildings.length * 7
   for (let i = 0; i < w.water.depth.length; i += 37) s = (s * 31 + w.water.depth[i] * 1000) % 1e9
-  s += w.stock.water * 13 + w.stock.log * 17 + w.stock.bread * 19
+  s += w.stock.water * 13 + w.stock.log * 17 + w.stock.meal * 19
   for (const c of w.citizens) s += c.i * 3 + c.needs.water * 100
   return Math.round(s * 1000)
 }

@@ -73,7 +73,7 @@ function onNewDay(world: World): void {
   }
 
   const cap = Math.max(1, world.capacity)
-  const food = world.stock.bread + world.stock.wheat
+  const food = world.stock.meal + world.stock.wheat
   const room = world.housing - world.citizens.length
   if (
     room > 0 &&

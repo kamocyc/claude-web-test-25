@@ -21,9 +21,9 @@ export interface Building {
   workers: number[]
   /** 水門の堰高 */
   gateHeight: number
-  /** 完成済みの積み上げ数（堤防）*/
+  /** 完成済みの積み上げ数（土手）*/
   stack: number
-  /** 建設待ちの追加段数（堤防・掘削）*/
+  /** 建設待ちの追加段数（土手・掘削）*/
   pending: number
   /** この tick に実際に稼働したか */
   active: boolean

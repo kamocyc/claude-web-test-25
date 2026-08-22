@@ -45,7 +45,7 @@ function pipeFlux(
  *   4. evaporate / clampCeiling
  *
  * 「乾いた高い隣へは流れ込まない」「下流が高ければ遡上しない」は 1 の cross 判定と
- * 2 の縮小により自動的に満たされるので特別扱いは要らない。堤防・ダム・水門は
+ * 2 の縮小により自動的に満たされるので特別扱いは要らない。土手・堰・水門は
  * いずれも grid.bed()（= ground + barrier）を上げるだけで、越流も貯水も同じ式から出る。
  */
 export class WaterSim {

@@ -1,7 +1,13 @@
 import { World } from '../core/world'
 import type { Building } from '../core/world'
 import { BuildingDef, defOf } from '../data/buildings'
-import { DAM_RESIST, FLOODGATE_MAX_HEIGHT, MAX_Z, PUMP_MIN_DEPTH } from '../data/constants'
+import {
+  DAM_RESIST,
+  FLOODGATE_MAX_HEIGHT,
+  MAX_Z,
+  PADDY_MAX_DEPTH,
+  PUMP_MIN_DEPTH,
+} from '../data/constants'
 
 export interface PlaceCheck {
   ok: boolean
@@ -14,7 +20,7 @@ export function canPlace(world: World, def: BuildingDef, i: number): PlaceCheck 
   if (i < 0 || i >= grid.size) return { ok: false, reason: '範囲外' }
   const existing = world.buildingOn(i)
   if (existing) {
-    // 堤防は積み上げられる
+    // 土手は積み上げられる
     if (def.kind === 'levee' && defOf(existing.defId).kind === 'levee' && existing.built) {
       if (grid.ground[i] + 1 >= MAX_Z) return { ok: false, reason: 'これ以上高くできない' }
       return { ok: true }
@@ -24,6 +30,10 @@ export function canPlace(world: World, def: BuildingDef, i: number): PlaceCheck 
   switch (def.placement) {
     case 'land':
       if (water.depth[i] > 0.3) return { ok: false, reason: '水中には建てられない' }
+      break
+    case 'shallowWater':
+      // 水田は水を張った土地に置く。深いところには置けない
+      if (water.depth[i] > PADDY_MAX_DEPTH) return { ok: false, reason: '水が深すぎる' }
       break
     case 'nearWater': {
       let near = false
@@ -43,7 +53,7 @@ export function canPlace(world: World, def: BuildingDef, i: number): PlaceCheck 
   return { ok: true }
 }
 
-/** 建設サイトを置く（資材はここで引き当てる）。既存の堤防なら段を積み増す。 */
+/** 建設サイトを置く（資材はここで引き当てる）。既存の土手なら段を積み増す。 */
 export function place(world: World, def: BuildingDef, i: number): Building | null {
   const check = canPlace(world, def, i)
   if (!check.ok) return null
@@ -159,7 +169,7 @@ export function demolish(world: World, b: Building): void {
   world.removeBuilding(b)
 }
 
-/** 揚水ポンプの取水口（隣接する最も深い水の列）。無ければ -1 */
+/** 踏車の取水口（隣接する最も深い水の列）。無ければ -1 */
 export function intakeOf(world: World, i: number): number {
   const { grid, water } = world
   let best = -1

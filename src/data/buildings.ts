@@ -1,4 +1,4 @@
-export const RESOURCES = ['water', 'log', 'plank', 'wheat', 'bread'] as const
+export const RESOURCES = ['water', 'log', 'plank', 'rice', 'meal', 'wheat'] as const
 export type ResourceKind = (typeof RESOURCES)[number]
 export type Stock = Record<ResourceKind, number>
 
@@ -6,12 +6,13 @@ export const RESOURCE_LABEL: Record<ResourceKind, string> = {
   water: '水',
   log: '丸太',
   plank: '板材',
-  wheat: '小麦',
-  bread: 'パン',
+  rice: '籾',
+  meal: '米',
+  wheat: '麦',
 }
 
 export function emptyStock(): Stock {
-  return { water: 0, log: 0, plank: 0, wheat: 0, bread: 0 }
+  return { water: 0, log: 0, plank: 0, rice: 0, meal: 0, wheat: 0 }
 }
 
 export type BuildingKind =
@@ -22,15 +23,16 @@ export type BuildingKind =
   | 'irrigation'
   | 'lumberjack'
   | 'sawmill'
+  | 'paddy'
   | 'farm'
-  | 'bakery'
+  | 'mill'
   | 'storage'
   | 'levee'
   | 'dam'
   | 'floodgate'
   | 'dig'
 
-export type Placement = 'land' | 'nearWater' | 'anyTerrain'
+export type Placement = 'land' | 'shallowWater' | 'nearWater' | 'anyTerrain'
 
 export interface BuildingDef {
   id: string
@@ -57,8 +59,8 @@ export interface BuildingDef {
 export const BUILDINGS: readonly BuildingDef[] = [
   {
     id: 'district',
-    name: '地区センター',
-    desc: '開始地点。共有在庫と 3 人分の寝床、住民のスポーン地点になる。',
+    name: '庄屋',
+    desc: '村の始まり。共有の蔵と 3 人分の寝床を兼ね、ここから人が育つ。',
     kind: 'district',
     category: 'living',
     cost: {},
@@ -72,8 +74,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'house',
-    name: '住居',
-    desc: '住民 4 人が眠れる。人口上限を増やす。',
+    name: '民家',
+    desc: '茅葺の家。4 人が眠れる。人口の上限を増やす。',
     kind: 'house',
     category: 'living',
     cost: { log: 6 },
@@ -86,8 +88,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'storage',
-    name: '倉庫',
-    desc: '共有在庫の容量を増やす。',
+    name: '蔵',
+    desc: '村の蓄えを増やす。',
     kind: 'storage',
     category: 'living',
     cost: { log: 4, plank: 2 },
@@ -100,8 +102,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'pump',
-    name: '揚水ポンプ',
-    desc: '隣接する水深 0.5 以上の水から水を汲み上げる。集落の生命線。',
+    name: '踏車',
+    desc: '足で踏んで水を汲み上げる。隣に水深 0.5 以上の水がいる。村の生命線。',
     kind: 'pump',
     category: 'water',
     cost: { log: 4 },
@@ -115,8 +117,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'dump',
-    name: '放水設備',
-    desc: '備蓄した水を地形に戻す。貯水池の補給や遠方の灌漑に使う。',
+    name: '放水樋',
+    desc: '蓄えた水を地面に戻す。ため池の補給や、遠くの田へ水を送るのに使う。',
     kind: 'dump',
     category: 'water',
     cost: { log: 3, plank: 2 },
@@ -130,8 +132,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'irrigation',
-    name: '灌漑塔',
-    desc: '水を消費して周囲 8 マスに湿り気を供給する。乾季の生命線。',
+    name: '用水櫓',
+    desc: '水を汲み上げて周囲 8 マスの土を潤す。日照りの畑を守る。',
     kind: 'irrigation',
     category: 'water',
     cost: { log: 4, plank: 4 },
@@ -146,8 +148,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'lumberjack',
-    name: '伐採小屋',
-    desc: '周囲の育った木を伐って丸太にする。跡地には苗が育つ。',
+    name: '杣小屋',
+    desc: '周りの育った木を伐って丸太にする。跡地には苗が残る。',
     kind: 'lumberjack',
     category: 'industry',
     cost: { log: 3 },
@@ -162,8 +164,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'sawmill',
-    name: '製材所',
-    desc: '丸太を板材に加工する。',
+    name: '木挽小屋',
+    desc: '丸太を挽いて板材にする。',
     kind: 'sawmill',
     category: 'industry',
     cost: { log: 6 },
@@ -176,38 +178,53 @@ export const BUILDINGS: readonly BuildingDef[] = [
     placement: 'land',
   },
   {
+    id: 'paddy',
+    name: '水田',
+    desc: '稲を育てる。水深 0.05〜1.0 の湛水がいる。水が涸れれば枯れ、深く浸かれば止まる。',
+    kind: 'paddy',
+    category: 'industry',
+    cost: { log: 1 },
+    buildPoints: 50,
+    workers: 1,
+    jobPriority: 8,
+    recipe: { out: { rice: 4 }, ticks: 90 },
+    color: 0x7fa86a,
+    height: 0.3,
+    placement: 'shallowWater',
+  },
+  {
     id: 'farm',
-    name: '農地',
-    desc: '湿った土でのみ小麦が育つ。乾くと枯れる。',
+    name: '畑',
+    desc: '湿った土で麦が育つ。湛水はいらないので、日照りの備えになる。',
     kind: 'farm',
     category: 'industry',
     cost: { log: 1 },
     buildPoints: 40,
     workers: 1,
-    jobPriority: 8,
+    jobPriority: 6,
     recipe: { out: { wheat: 3 }, ticks: 90 },
     color: 0xbfa76a,
     height: 0.35,
     placement: 'land',
   },
   {
-    id: 'bakery',
-    name: 'パン屋',
-    desc: '小麦と水からパンを焼く。',
-    kind: 'bakery',
+    id: 'mill',
+    name: '精米所',
+    desc: '水車で籾を搗いて米にする。米は村の主食。',
+    kind: 'mill',
     category: 'industry',
     cost: { log: 4, plank: 3 },
     buildPoints: 130,
     workers: 2,
     jobPriority: 7,
-    recipe: { in: { wheat: 2, water: 1 }, out: { bread: 3 }, ticks: 60 },
+    recipe: { in: { rice: 2, water: 1 }, out: { meal: 3 }, ticks: 60 },
     color: 0xd8b46a,
     height: 1.4,
     placement: 'land',
   },
   {
     id: 'levee',
-    name: '堤防',
+    name: '土手',
     desc: '水を完全にせき止める。積み上げれば高い壁になる。',
     kind: 'levee',
     category: 'terrain',
@@ -220,8 +237,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'dam',
-    name: 'ダム',
-    desc: '高さ 1 まで水をせき止め、超えた分は越流する。貯水の基本。',
+    name: '堰',
+    desc: '高さ 1 まで水をせき止め、超えた分は越していく。水を溜める基本。',
     kind: 'dam',
     category: 'terrain',
     cost: { log: 3 },
@@ -234,7 +251,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   {
     id: 'floodgate',
     name: '水門',
-    desc: '堰の高さを 0〜3 で調整できる。乾季前の水位管理に使う。',
+    desc: '堰の高さを 0〜3 で加減できる。日照りに備えて水位を操る。',
     kind: 'floodgate',
     category: 'terrain',
     cost: { log: 4, plank: 2 },
@@ -246,8 +263,8 @@ export const BUILDINGS: readonly BuildingDef[] = [
   },
   {
     id: 'dig',
-    name: '掘削',
-    desc: '地形を 1 段掘り下げる。水路を通したり水を導いたりできる。',
+    name: '堀割',
+    desc: '地面を 1 段掘り下げる。田へ水を引き、深く掘れば舟の通る運河になる。',
     kind: 'dig',
     category: 'terrain',
     cost: {},

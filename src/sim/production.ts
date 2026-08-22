@@ -4,6 +4,8 @@ import { ResourceKind, defOf } from '../data/buildings'
 import {
   CROP_GROW_TICKS,
   DUMP_ADD_PER_UNIT,
+  PADDY_MAX_DEPTH,
+  PADDY_MIN_DEPTH,
   PLANT_DIE_TICKS,
   PUMP_DRAW_PER_UNIT,
   SOIL_GROW_THRESHOLD,
@@ -14,7 +16,7 @@ import { intakeOf } from './structures'
 
 const VEG_INTERVAL = 10
 
-/** 建物の生産を 1 tick 進め、灌漑塔などの湿り気供給源を返す。 */
+/** 建物の生産を 1 tick 進め、用水櫓などの湿り気供給源を返す。 */
 export function updateProduction(world: World): MoistureSource[] {
   const moisture: MoistureSource[] = []
   for (const b of world.buildings) {
@@ -47,6 +49,20 @@ export function updateProduction(world: World): MoistureSource[] {
         continue
       }
     }
+    if (def.kind === 'paddy') {
+      // 稲は湛水で育つ。土壌水分は見ない。季節にも依らず、水位だけが効く。
+      const depth = world.water.depth[b.i]
+      if (depth < PADDY_MIN_DEPTH) {
+        b.status = '田の水が涸れた'
+        b.progress = Math.max(0, b.progress - 0.5)
+        continue
+      }
+      if (depth > PADDY_MAX_DEPTH) {
+        // 深く浸かっても稲は枯れない。水が引けば続きから育つ
+        b.status = '水に浸かっている'
+        continue
+      }
+    }
     if (def.kind === 'lumberjack' && nearestTree(world, b) < 0) {
       b.status = '育った木がない'
       continue
@@ -63,8 +79,9 @@ export function updateProduction(world: World): MoistureSource[] {
 
     b.active = true
     b.status = '稼働中'
-    b.progress += def.kind === 'farm' ? (rate * CROP_GROW_TICKS) / recipe.ticks : rate
-    const goal = def.kind === 'farm' ? CROP_GROW_TICKS : recipe.ticks
+    const crop = def.kind === 'farm' || def.kind === 'paddy'
+    b.progress += crop ? (rate * CROP_GROW_TICKS) / recipe.ticks : rate
+    const goal = crop ? CROP_GROW_TICKS : recipe.ticks
     if (b.progress < goal) {
       if (def.kind === 'irrigation') moisture.push({ i: b.i, strength: def.radius ?? 8 })
       continue

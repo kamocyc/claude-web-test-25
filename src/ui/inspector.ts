@@ -110,8 +110,9 @@ export class Inspector {
       return parts.join('')
     }
     if (def.recipe) {
-      const goal = def.kind === 'farm' ? CROP_GROW_TICKS : def.recipe.ticks
-      parts.push(bar(def.kind === 'farm' ? '生育' : '生産', b.progress / goal))
+      const crop = def.kind === 'farm' || def.kind === 'paddy'
+      const goal = crop ? CROP_GROW_TICKS : def.recipe.ticks
+      parts.push(bar(crop ? '生育' : '生産', b.progress / goal))
       parts.push(`<div class="cost">${b.status || '待機中'}</div>`)
     }
     if (def.workers > 0) parts.push(`<div class="cost">働き手 ${b.workers.length} / ${def.workers}</div>`)

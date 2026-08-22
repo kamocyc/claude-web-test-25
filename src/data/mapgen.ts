@@ -39,7 +39,7 @@ export interface MapOptions {
 /**
  * 川が上流(y=0)から下流(y=h-1)へ流れる谷を生成する。
  * 川床は緩やかに下り、下端は排水口なので水は流れ去る。プレイヤーは途中に
- * ダムや水門を建てて水を溜める。
+ * 堰や水門を建てて水を溜める。
  */
 export function generateWorld(opts: MapOptions = {}): World {
   const w = opts.w ?? 80
@@ -152,7 +152,7 @@ export function generateWorld(opts: MapOptions = {}): World {
   world.stock.log = 60
   world.stock.plank = 20
   world.stock.water = 45
-  world.stock.bread = 45
+  world.stock.meal = 45
 
   for (let n = 0; n < 5; n++) world.spawnCitizen(startI)
   world.irrigation.recompute(world.water, [])

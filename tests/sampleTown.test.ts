@@ -12,7 +12,7 @@ describe('サンプルの町', () => {
   it('主要な建物が揃っていて、全部完成している', () => {
     const g = createSampleGame(64, 64)
     expect(g.world.buildings.filter((b) => !b.built)).toEqual([])
-    for (const id of ['pump', 'house', 'storage', 'lumberjack', 'sawmill', 'bakery', 'farm', 'irrigation', 'dam', 'floodgate']) {
+    for (const id of ['pump', 'house', 'storage', 'lumberjack', 'sawmill', 'mill', 'farm', 'irrigation', 'dam', 'floodgate']) {
       expect(countOf(g, id), `${defOf(id).name} が無い`).toBeGreaterThan(0)
     }
     expect(countOf(g, 'farm')).toBeGreaterThanOrEqual(4)
@@ -28,12 +28,12 @@ describe('サンプルの町', () => {
     // さらに数日回しても人が減らず、水と食料が尽きない
     const pop = w.citizens.length
     w.stock.water = 0
-    w.stock.bread = 0
+    w.stock.meal = 0
     w.stock.wheat = 0
     for (let t = 0; t < TICKS_PER_DAY * 4; t++) g.step()
     expect(w.citizens.length).toBeGreaterThanOrEqual(pop)
     expect(w.stock.water).toBeGreaterThan(0)
-    expect(w.stock.wheat + w.stock.bread).toBeGreaterThan(0)
+    expect(w.stock.wheat + w.stock.meal).toBeGreaterThan(0)
   }, 60000)
 
   it('堰の上流に貯水池ができている', () => {
