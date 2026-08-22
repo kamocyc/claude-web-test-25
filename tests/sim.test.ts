@@ -45,9 +45,15 @@ describe('ワールド', () => {
     expect(hash(a)).toBe(hash(b))
   })
 
-  it('乾季になると水源が止まり貯水が減る', () => {
+  it('日照りになると水源が細って貯水が減る', () => {
     const g = new Game({ w: 40, h: 40, seed: 5 })
-    while (g.world.season.kind === 'temperate') g.step()
+    for (let t = 0; t < TICKS_PER_DAY * 2; t++) g.step() // 平年で落ち着かせる
+    // 季節はランダムに引かれるので、日照りの効果だけを見るため直接その季節に置く
+    const s = g.world.season
+    s.kind = 'drought'
+    s.prevKind = 'drought'
+    s.elapsed = 0
+    s.lengthDays = 20
     const atStart = g.world.water.totalVolume()
     for (let t = 0; t < TICKS_PER_DAY * 2; t++) g.step()
     expect(g.world.season.kind).toBe('drought')

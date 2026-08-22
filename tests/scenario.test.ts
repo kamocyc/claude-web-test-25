@@ -10,13 +10,13 @@ const run = (g: Game, ticks: number): void => {
 }
 
 /**
- * 耕作できる土地の広さ。判定は生産側（production.ts の農地）と同じ条件にする:
+ * 耕作できる土地の広さ。判定は生産側（production.ts の畑）と同じ条件にする:
  * 水没しておらず、土壌水分が SOIL_GROW_THRESHOLD 以上の列。
  *
  * around を渡すとその周辺だけ数える。川沿いの氾濫原はもともと広く湿っているので、
  * 灌漑塔の効果を見るときは塔の周りに限って数える。
  */
-function arable(w: World, around = -1, radius = 12): number {
+function arable(w: World, around = -1, radius = 6): number {
   let n = 0
   for (let i = 0; i < w.grid.size; i++) {
     if (around >= 0) {
@@ -55,10 +55,29 @@ describe('灌漑で耕作できる土地が広がる', () => {
     w.stock.water = 999 // 塔の水切れで話がぶれないようにする
     run(g, 120)
 
-    // 乾いていて（moisture 0）、働き手が歩いて行ける塔の建設地
+    // 塔を建てる場所の条件:
+    //   - 乾いている（moisture 0）
+    //   - まわりに乾いた平地がまとまって残っている（塔が実際に潤せる土地があること）
+    //   - 働き手が歩いて行ける（無人だと塔は動かない）
+    // 入植地に近い順に選ぶので、住民が通える距離に収まる。
+    const dryFlatAround = (i: number, r: number): number => {
+      const { grid } = w
+      let n = 0
+      for (let y = Math.max(0, grid.yOf(i) - r); y <= Math.min(grid.h - 1, grid.yOf(i) + r); y++) {
+        for (let x = Math.max(0, grid.xOf(i) - r); x <= Math.min(grid.w - 1, grid.xOf(i) + r); x++) {
+          const j = grid.idx(x, y)
+          if (w.irrigation.moisture[j] === 0 && Math.abs(grid.ground[j] - grid.ground[i]) <= 1) n++
+        }
+      }
+      return n
+    }
     const tower = nearestSpot(
       g,
-      (i) => w.irrigation.moisture[i] === 0 && canPlace(w, defOf('irrigation'), i).ok && !!g.path.find(w.startI, i),
+      (i) =>
+        w.irrigation.moisture[i] === 0 &&
+        canPlace(w, defOf('irrigation'), i).ok &&
+        dryFlatAround(i, 8) >= 60 &&
+        !!g.path.find(w.startI, i),
     )
     expect(tower).toBeGreaterThanOrEqual(0)
     expect(w.irrigation.soilWet[tower]).toBeLessThan(SOIL_GROW_THRESHOLD)
@@ -70,14 +89,14 @@ describe('灌漑で耕作できる土地が広がる', () => {
     run(g, TICKS_PER_DAY * 2)
 
     const after = arable(w, tower)
-    // 射程 8 の塔ひとつで、段差の分を差し引いても数十マスは増える
-    expect(after).toBeGreaterThan(before + 20)
+    // 実測 +32。射程 8 の塔ひとつで、段差の分を差し引いても数十マスは増える
+    expect(after).toBeGreaterThan(before + 24)
     expect(w.irrigation.soilWet[tower]).toBeGreaterThanOrEqual(SOIL_GROW_THRESHOLD)
 
     // 水を切らすと塔は止まり、土は乾いて元の広さに戻る
     w.stock.water = 0
     run(g, TICKS_PER_DAY * 3)
-    expect(arable(w, tower)).toBeLessThan(after - 20)
+    expect(arable(w, tower)).toBeLessThan(after - 24)
     expect(w.irrigation.soilWet[tower]).toBeLessThan(SOIL_GROW_THRESHOLD)
   }, 60000)
 
@@ -195,7 +214,9 @@ function droughtScenario(opts: {
   // 人口が増えた集落が長い渇水（12 日）に入る場面にする。
   // 食料は十分に持たせ、水だけが生死を分けるようにする。
   w.season.kind = 'drought'
+  w.season.prevKind = 'normal' // 流量が 1 日かけて細っていく
   w.season.elapsed = 0
+  w.season.lengthDays = 20 // 試験中に季節が変わらないようにする
   w.season.cycle = 9
   for (let n = 0; n < 15; n++) w.spawnCitizen(w.startI)
   w.stock.bread = 400

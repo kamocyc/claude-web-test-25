@@ -1,5 +1,7 @@
 import * as THREE from 'three'
 import { Grid } from '../core/grid'
+import { SEASON_RAMP_TICKS } from '../data/constants'
+import { Season, SeasonKind } from '../sim/season'
 
 /** 既定の俯角。マウスの上下ドラッグで MIN_PITCH〜MAX_PITCH の間を変えられる */
 export const PITCH = 0.92
@@ -26,6 +28,25 @@ export function cameraOffset(yaw: number, pitch: number = PITCH): THREE.Vector3 
  *   画面手前 = ( sin yaw, 0,  cos yaw)
  * となる。yaw の回転を逆向きに当てると、カメラを回したときに W が後退になる。
  */
+/** 季節ごとの空と光。平年は澄んだ青、大雨は鉛色で暗く、日照りは白茶けて眩しい */
+const SEASON_SKY: Record<SeasonKind, {
+  sun: number; sunPower: number; ambient: number; ambientPower: number
+  zenith: number; horizon: number; haze: number
+}> = {
+  normal: {
+    sun: 0xfff0d6, sunPower: 2.6, ambient: 0xdcd6c2, ambientPower: 0.72,
+    zenith: 0x2f6ea8, horizon: 0xbcd3e0, haze: 0,
+  },
+  rain: {
+    sun: 0x9fb0bc, sunPower: 0.9, ambient: 0xb9c3c9, ambientPower: 0.95,
+    zenith: 0x44505c, horizon: 0x8b959c, haze: 0.6,
+  },
+  drought: {
+    sun: 0xffd49a, sunPower: 3.0, ambient: 0xe4d8b8, ambientPower: 0.64,
+    zenith: 0x6f7fa0, horizon: 0xdcc9a4, haze: 1,
+  },
+}
+
 export function panDelta(yaw: number, dx: number, dz: number): { x: number; z: number } {
   const s = Math.sin(yaw)
   const c = Math.cos(yaw)
@@ -153,18 +174,26 @@ export class SceneView {
     this.camera.updateProjectionMatrix()
   }
 
-  /** 季節に応じて光と空の色を変える（乾季は白茶けて霞む） */
-  setSeasonLight(drought: number): void {
-    const warm = new THREE.Color(0xfff0d6)
-    const dry = new THREE.Color(0xffd49a)
-    this.sun.color.copy(warm).lerp(dry, drought)
-    this.sun.intensity = 2.6 + drought * 0.4
-    this.ambient.intensity = 0.72 - drought * 0.08
+  /**
+   * 季節に応じて光と空の色を変える。季節の変わり目は 1 日かけて繋ぐので、
+   * 空が徐々に鉛色になっていくのを見て雨支度ができる。
+   */
+  setSeason(season: Season): void {
+    const t = Math.min(1, season.elapsed / SEASON_RAMP_TICKS)
+    const a = SEASON_SKY[season.prevKind]
+    const b = SEASON_SKY[season.kind]
+    const mix = (x: number, y: number) => x + (y - x) * t
+    const col = (x: number, y: number) => new THREE.Color(x).lerp(new THREE.Color(y), t)
+
+    this.sun.color.copy(col(a.sun, b.sun))
+    this.sun.intensity = mix(a.sunPower, b.sunPower)
+    this.ambient.color.copy(col(a.ambient, b.ambient))
+    this.ambient.intensity = mix(a.ambientPower, b.ambientPower)
     const u = this.skyMat.uniforms
-    ;(u.uZenith.value as THREE.Color).setHex(0x2f6ea8).lerp(new THREE.Color(0x6f7fa0), drought)
-    const horizon = new THREE.Color(0xbcd3e0).lerp(new THREE.Color(0xdcc9a4), drought)
+    ;(u.uZenith.value as THREE.Color).copy(col(a.zenith, b.zenith))
+    const horizon = col(a.horizon, b.horizon)
     ;(u.uHorizon.value as THREE.Color).copy(horizon)
-    u.uHaze.value = drought
+    u.uHaze.value = mix(a.haze, b.haze)
     ;(this.scene.fog as THREE.Fog).color.copy(horizon)
   }
 

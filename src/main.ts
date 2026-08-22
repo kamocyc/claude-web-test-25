@@ -234,7 +234,7 @@ function loop(now: number): void {
   if (frame % 10 === 0) terrain.syncFromGrid()
   if (frame % 30 === 0) terrain.refreshColors()
   entities.update(world, alpha)
-  view.setSeasonLight(world.season.kind === 'drought' ? Math.min(1, world.season.elapsed / 400) : 0)
+  view.setSeason(world.season)
   view.updateCamera()
   view.render()
 

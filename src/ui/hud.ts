@@ -1,5 +1,6 @@
 import { World } from '../core/world'
 import { RESOURCES, RESOURCE_LABEL } from '../data/buildings'
+import { SEASON_LABEL } from '../sim/season'
 
 export type StorageAction = 'save' | 'load' | 'sample'
 
@@ -44,13 +45,13 @@ export class Hud {
     }
 
     const s = world.season
-    const drought = s.kind === 'drought'
-    const season = `${drought ? '乾季' : '温暖期'} ・ ${s.day + 1}日目 ・ ${
-      drought ? '残り' : '次の乾季まで'
-    }${s.daysLeft}日|${world.citizens.length}/${world.housing}`
+    // 次の季節は前触れが出るまで伏せる（残り 2 日を切ると分かる）
+    const omen = s.forecast ? `${SEASON_LABEL[s.forecast]}の兆し` : '次は？'
+    const season = `${SEASON_LABEL[s.kind]} ・ ${s.day + 1}日目 ・ 残り${s.daysLeft}日 ・ ${omen}` +
+      `|${world.citizens.length}/${world.housing}`
     if (season !== this.lastSeason) {
       this.lastSeason = season
-      this.season.className = `chip${drought ? ' drought' : ''}`
+      this.season.className = `chip ${s.kind}`
       this.season.textContent = season.split('|')[0]
       this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
     }

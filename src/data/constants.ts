@@ -8,7 +8,6 @@ export const MAX_FLUX = 4 // パイプ 1 本あたりの最大流量
 export const WATER_SUBSTEPS = 4 // 1 tick を何分割して解くか
 export const DRY_EPSILON = 0.002 // これ未満の水深は 0 とみなす
 export const EVAP_RATE = 0.0004 // 蒸発 [m/s]（浅いほど速い）
-export const DROUGHT_EVAP_MULT = 3
 
 // --- 時間 -----------------------------------------------------------------
 export const TICKS_PER_SEC = 10
@@ -53,8 +52,32 @@ export const CROP_GROW_TICKS = TICKS_PER_DAY * 3
 export const PLANT_DIE_TICKS = TICKS_PER_DAY * 2 // 乾燥に耐えられる時間
 
 // --- 季節 -----------------------------------------------------------------
-export const TEMPERATE_DAYS = 12
-export const DROUGHT_DAYS_BASE = 3
+// 平年・大雨・日照りをランダムに引く。キーは SeasonKind と一致させる。
+/** 季節の長さ [日]（下限, 上限）。日照りは通過するたびに下限が伸びる */
+export const SEASON_DAYS = {
+  normal: [20, 28],
+  rain: [6, 10],
+  drought: [6, 10],
+} as const
 export const DROUGHT_DAYS_STEP = 1
-export const DROUGHT_DAYS_MAX = 12
-export const SEASON_RAMP_TICKS = TICKS_PER_DAY // 流量の切替に要する時間
+export const DROUGHT_DAYS_MAX = 14
+/** 直前と違う季節を引くときの重み */
+export const SEASON_WEIGHT = { normal: 3, rain: 2, drought: 2 }
+/** 水源の流量倍率 */
+export const SOURCE_STRENGTH = { normal: 1, rain: 2.2, drought: 0 }
+/** 蒸発の倍率 */
+export const EVAP_MULT = { normal: 1, rain: 0.4, drought: 3 }
+/**
+ * 大雨のとき「すでに水のある列」に降る雨 [m/s]。
+ *
+ * 乾いた列には降らせない。乾いた土は雨を吸い、水は低いところへ流れて水面に集まる、
+ * という現実の流出をそのまま模したもの。全列に降らせると、高台の窪地に抜け道のない
+ * 水たまりが何百と残り、日が経っても消えない（1 日 = 24 秒しかないので蒸発が追いつかない）。
+ * 川・貯水池・水田・水路だけが増水するので、季節が明ければ普通に引いていく。
+ * 周りの土地から集まってくる分も込みなので、雨量そのものより強めの値にしてある。
+ */
+export const RAIN_RATE = 0.004
+/** 出火のしやすさの倍率 */
+export const IGNITE_MULT = { normal: 1, rain: 0.1, drought: 4 }
+export const SEASON_RAMP_TICKS = TICKS_PER_DAY // 季節の切替に要する時間
+export const SEASON_OMEN_DAYS = 2 // 次の季節の前触れが出る残り日数

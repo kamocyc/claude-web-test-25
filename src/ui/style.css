@@ -36,6 +36,7 @@ canvas { display: block; width: 100vw; height: 100vh; }
 .sep { width: 1px; height: 20px; background: var(--line); }
 .chip { padding: 2px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); white-space: nowrap; }
 .chip.drought { background: rgba(224, 163, 74, 0.22); color: var(--warn); }
+.chip.rain { background: rgba(96, 150, 200, 0.24); color: #bcd8f0; }
 
 .res { display: flex; gap: 4px; align-items: center; white-space: nowrap; }
 .res b { font-weight: 600; }

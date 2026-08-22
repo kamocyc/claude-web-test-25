@@ -79,11 +79,14 @@ export class Irrigation {
     for (let i = 0; i < grid.size; i++) moisture[i] = best[i] > 0 ? best[i] : 0
   }
 
-  /** 目標値に向けて土壌水分を緩やかに動かす（毎 tick） */
-  advance(): void {
+  /**
+   * 目標値に向けて土壌水分を緩やかに動かす（毎 tick）。
+   * rain は降雨の強さ 0..1。雨のあいだは水路が届かない高台も潤う。
+   */
+  advance(rain = 0): void {
     const { moisture, soilWet } = this
     for (let i = 0; i < soilWet.length; i++) {
-      const target = moisture[i] > 0 ? 1 : 0
+      const target = moisture[i] > 0 ? 1 : rain
       const cur = soilWet[i]
       if (cur < target) soilWet[i] = Math.min(target, cur + SOIL_WET_RATE)
       else if (cur > target) soilWet[i] = Math.max(target, cur - SOIL_DRY_RATE)

@@ -1,9 +1,14 @@
 import { World } from '../core/world'
 import type { Building, Citizen } from '../core/world'
 import { emptyStock, Stock } from '../data/buildings'
+import { SEASON_KINDS, SeasonKind } from '../sim/season'
 
-const VERSION = 1
-const KEY = 'riverfolk.save.v1'
+function seasonKind(v: string): SeasonKind {
+  return (SEASON_KINDS as readonly string[]).includes(v) ? (v as SeasonKind) : 'normal'
+}
+
+const VERSION = 2
+const KEY = 'satoyama.save.v2'
 
 interface SaveData {
   version: number
@@ -12,7 +17,16 @@ interface SaveData {
   tick: number
   stock: Stock
   rng: number
-  season: { kind: string; elapsed: number; day: number; dayTick: number; cycle: number }
+  season: {
+    kind: string
+    prevKind: string
+    nextKind: string | null
+    lengthDays: number
+    elapsed: number
+    day: number
+    dayTick: number
+    cycle: number
+  }
   natural: number[]
   levee: number[]
   barrier: number[]
@@ -49,6 +63,9 @@ export function serialize(world: World): string {
     rng: world.rng.state,
     season: {
       kind: season.kind,
+      prevKind: season.prevKind,
+      nextKind: season.nextKind,
+      lengthDays: season.lengthDays,
       elapsed: season.elapsed,
       day: season.day,
       dayTick: season.dayTick,
@@ -104,7 +121,10 @@ export function deserializeInto(world: World, json: string): boolean {
   world.tick = data.tick
   world.stock = { ...emptyStock(), ...data.stock }
   world.rng.state = data.rng
-  world.season.kind = data.season.kind === 'drought' ? 'drought' : 'temperate'
+  world.season.kind = seasonKind(data.season.kind)
+  world.season.prevKind = seasonKind(data.season.prevKind)
+  world.season.nextKind = data.season.nextKind === null ? null : seasonKind(data.season.nextKind)
+  world.season.lengthDays = data.season.lengthDays
   world.season.elapsed = data.season.elapsed
   world.season.day = data.season.day
   world.season.dayTick = data.season.dayTick
