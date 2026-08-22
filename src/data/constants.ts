@@ -7,7 +7,7 @@ export const DAMPING = 0.97 // フラックスの減衰（発振抑制）
 export const MAX_FLUX = 4 // パイプ 1 本あたりの最大流量
 export const WATER_SUBSTEPS = 4 // 1 tick を何分割して解くか
 export const DRY_EPSILON = 0.002 // これ未満の水深は 0 とみなす
-export const EVAP_RATE = 0.0004 // 蒸発 [m/s]（浅いほど速い）
+export const EVAP_RATE = 0.001 // 蒸発 [m/s]（水面から。浅いほうが少しだけ速い）
 
 // --- 時間 -----------------------------------------------------------------
 export const TICKS_PER_SEC = 10
@@ -115,5 +115,7 @@ export const EVAP_MULT = { normal: 1, rain: 0.4, drought: 3 }
 export const RAIN_RATE = 0.004
 /** 出火のしやすさの倍率 */
 export const IGNITE_MULT = { normal: 1, rain: 0.1, drought: 4 }
-export const SEASON_RAMP_TICKS = TICKS_PER_DAY // 季節の切替に要する時間
+// 季節の切替に要する時間。大雨と日照りは 6〜10 日しかないので、
+// 1 日かけて繋ぐと季節の 1〜2 割が中途半端な状態になってしまう
+export const SEASON_RAMP_TICKS = Math.round(TICKS_PER_DAY / 3)
 export const SEASON_OMEN_DAYS = 2 // 次の季節の前触れが出る残り日数

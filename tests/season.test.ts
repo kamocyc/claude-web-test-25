@@ -7,6 +7,7 @@ import {
   DROUGHT_DAYS_MAX,
   SEASON_DAYS,
   SEASON_OMEN_DAYS,
+  SEASON_RAMP_TICKS,
   TICKS_PER_DAY,
 } from '../src/data/constants'
 
@@ -80,16 +81,18 @@ describe('季節', () => {
     expect(hidden).toBeGreaterThan(revealed) // 伏せられている時間のほうが長い
   })
 
-  it('季節の変わり目は水源の強さが 1 日かけて繋がる', () => {
+  it('季節の変わり目は水源の強さが繋がっていく', () => {
     const s = new Season()
     s.prevKind = 'drought'
     s.kind = 'rain'
     s.elapsed = 0
     expect(s.sourceStrength).toBeCloseTo(0, 5) // 日照りの流量から
-    s.elapsed = TICKS_PER_DAY / 2
+    s.elapsed = SEASON_RAMP_TICKS / 2
     expect(s.sourceStrength).toBeCloseTo(1.1, 5)
-    s.elapsed = TICKS_PER_DAY
+    s.elapsed = SEASON_RAMP_TICKS
     expect(s.sourceStrength).toBeCloseTo(2.2, 5) // 大雨の流量へ
+    // 短い季節でも大半を本気の状態で過ごせるよう、繋ぎは 1 日より短い
+    expect(SEASON_RAMP_TICKS).toBeLessThan(TICKS_PER_DAY)
   })
 })
 

@@ -247,10 +247,10 @@ export class WaterSim {
     for (let i = 0; i < depth.length; i++) {
       const d = depth[i]
       if (d <= 0) continue
-      // 浅いほど速く乾く
-      let f = 1 - d / 0.5
-      if (f < 0.2) f = 0.2
-      else if (f > 1) f = 1
+      // 蒸発は水面で起きるので、深さでそれほど変わらない。浅いほうがよく温まるぶん
+      // 少しだけ速い、という程度にする。以前は深さ 0.5 で係数が下限に張り付いていて、
+      // 貯めた水がいつまでも減らなかった。
+      const f = 0.6 + 0.4 / (1 + d * 2)
       const nd = d - rate * f * dt
       depth[i] = nd > 0 ? nd : 0
     }

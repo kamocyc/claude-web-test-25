@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { Grid } from '../src/core/grid'
 import { WaterSim } from '../src/sim/water'
-import { CELL, WATER_SUBSTEPS, TICK_DT } from '../src/data/constants'
+import {
+  CELL,
+  EVAP_MULT,
+  EVAP_RATE,
+  TICKS_PER_DAY,
+  TICK_DT,
+  WATER_SUBSTEPS,
+} from '../src/data/constants'
 
 const SUB_DT = TICK_DT / WATER_SUBSTEPS
 
@@ -137,6 +144,30 @@ describe('水流ソルバ', () => {
     run(simB, 1000)
     // 薄い水膜は断面が小さく抜けが遅い（実際の挙動）ので 1 割程度まで減ればよい
     expect(simB.totalVolume()).toBeLessThan(2)
+  })
+
+  it('深い水でも蒸発が止まらない', () => {
+    // 以前は水深 0.5 以上で係数が下限に張り付き、貯めた水がいつまでも減らなかった。
+    // 2 m の貯水池が空になるのに 340 日かかる計算で、日照りに何の意味も無かった。
+    const day = TICKS_PER_DAY
+    // 盤面いっぱいに同じ深さで張る（水面が水平なので流れは起きず、減るのは蒸発の分だけ）
+    const pond = (depth: number, evap: number): number => {
+      const g = flat(4, 4, 4)
+      const sim = new WaterSim(g)
+      sim.depth.fill(depth)
+      run(sim, day * 10, evap)
+      return depth - sim.depth[g.idx(2, 2)]
+    }
+    const droughtRate = EVAP_RATE * EVAP_MULT.drought
+    // 日照りが 10 日続けば、2 m の貯水池でも 0.3 m 以上は減る（実測 0.49）
+    expect(pond(2, droughtRate)).toBeGreaterThan(0.3)
+    // ただし浅い水のほうが速い（水面はよく温まる）
+    expect(pond(0.1, droughtRate)).toBeGreaterThan(0)
+    const shallow = pond(0.3, droughtRate) / 0.3
+    const deep = pond(2, droughtRate) / 2
+    expect(shallow).toBeGreaterThan(deep)
+    // 平年は日照りの 1/3 の速さ
+    expect(pond(2, EVAP_RATE * EVAP_MULT.normal)).toBeLessThan(pond(2, droughtRate) * 0.4)
   })
 
   it('セル面積の定義と体積が整合する', () => {
