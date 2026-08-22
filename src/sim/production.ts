@@ -4,6 +4,8 @@ import { ResourceKind, defOf } from '../data/buildings'
 import {
   CROP_GROW_TICKS,
   DUMP_ADD_PER_UNIT,
+  FLOOD_CROP_DEPTH,
+  FLOOD_TREE_DEPTH,
   LOAD_CAP,
   PADDY_MAX_DEPTH,
   PADDY_MIN_DEPTH,
@@ -16,6 +18,7 @@ import {
 import { MoistureSource } from './irrigation'
 import { intakeOf } from './structures'
 import { Logistics } from './logistics'
+import { isSwamped } from './flood'
 
 const VEG_INTERVAL = 10
 
@@ -36,6 +39,10 @@ export function updateProduction(world: World): MoistureSource[] {
     }
 
     // --- 稼働条件（建物ごと） ---
+    if (isSwamped(world, b)) {
+      b.status = '床上まで水が来ている'
+      continue
+    }
     let intake = -1
     if (def.kind === 'pump') {
       intake = intakeOf(world, b.i)
@@ -45,6 +52,12 @@ export function updateProduction(world: World): MoistureSource[] {
       }
     }
     if (def.kind === 'farm') {
+      // 畑の麦は水に弱い。冠水すると育ちかけの作物ごと流される（稲は水田で耐える）
+      if (world.water.depth[b.i] >= FLOOD_CROP_DEPTH) {
+        b.status = '水に浸かった'
+        b.progress = 0
+        continue
+      }
       if (world.irrigation.soilWet[b.i] < SOIL_GROW_THRESHOLD) {
         b.status = '土が乾いている'
         // 乾くと育ちかけの作物は萎れていく
@@ -152,7 +165,9 @@ export function updateVegetation(world: World): void {
   const { hasTree, treeGrowth, treeDry, irrigation } = world
   for (let i = 0; i < hasTree.length; i++) {
     if (!hasTree[i]) continue
-    if (irrigation.soilWet[i] >= SOIL_GROW_THRESHOLD) {
+    // 乾いても、水に浸かりすぎても木は弱る（treeDry は「痛め付けられている時間」）
+    const drowning = world.water.depth[i] >= FLOOD_TREE_DEPTH
+    if (!drowning && irrigation.soilWet[i] >= SOIL_GROW_THRESHOLD) {
       treeDry[i] = 0
       if (treeGrowth[i] < 1) treeGrowth[i] = Math.min(1, treeGrowth[i] + VEG_INTERVAL / TREE_GROW_TICKS)
     } else {

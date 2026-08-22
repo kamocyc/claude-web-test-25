@@ -91,6 +91,7 @@ export function completeBuild(world: World, b: Building): void {
   const { grid } = world
   b.built = true
   b.buildProgress = def.buildPoints
+  b.damaged = false
   b.status = ''
   switch (def.kind) {
     case 'levee': {

@@ -60,6 +60,8 @@ export interface BuildingDef {
   fireProne?: boolean
   /** 土壁で囲われていて燃えない */
   fireproof?: boolean
+  /** 高い基礎と漆喰で水に強い */
+  floodproof?: boolean
   /** 描画用 */
   color: number
   height: number
@@ -306,6 +308,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     workers: 0,
     storage: 80,
     fireproof: true,
+    floodproof: true,
     color: 0xd8d4c8,
     height: 1.4,
     placement: 'land',

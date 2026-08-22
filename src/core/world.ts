@@ -25,6 +25,8 @@ export interface Building {
   stack: number
   /** 建設待ちの追加段数（土手・掘削）*/
   pending: number
+  /** 浸水で傷んでいる（建て直しではなく修理待ち） */
+  damaged: boolean
   /** 火の勢い 0..1（0 = 燃えていない） */
   fire: number
   /** 出火してから発見されるまでの経過 tick */
@@ -167,6 +169,7 @@ export class World {
       pending: 0,
       load: 0,
       loadKind: '',
+      damaged: false,
       fire: 0,
       fireTicks: 0,
       burnTicks: 0,

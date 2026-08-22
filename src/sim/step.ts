@@ -17,6 +17,7 @@ import { moveLoads, updateProduction, updateVegetation } from './production'
 import { Logistics } from './logistics'
 import { SEASON_LABEL, SEASON_OMEN } from './season'
 import { igniteDaily, updateFire } from './fire'
+import { floodDamage } from './flood'
 
 /** 1 tick の実行順序 */
 export function stepWorld(
@@ -82,6 +83,7 @@ export function stepWorld(
 
 function onNewDay(world: World): void {
   igniteDaily(world)
+  floodDamage(world)
 
   // 次の季節の前触れ。残り日数がちょうど閾値になった日に一度だけ出す
   const season = world.season

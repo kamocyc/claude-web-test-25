@@ -4,6 +4,7 @@ import { defOf } from '../data/buildings'
 import { CROP_GROW_TICKS, FLOODGATE_MAX_HEIGHT, LOAD_CAP, ROUTE_RATE } from '../data/constants'
 import { Logistics, ROUTE_LABEL } from '../sim/logistics'
 import { demolish, setGateHeight } from '../sim/structures'
+import { canFlood } from '../sim/flood'
 
 type Selection = { kind: 'building'; id: number } | { kind: 'citizen'; id: number } | null
 
@@ -115,8 +116,13 @@ export class Inspector {
       parts.push(`<div class="cost">${b.detected ? '火消しが向かっている' : 'まだ誰も気づいていない'}</div>`)
     }
     if (!b.built) {
-      parts.push(bar('建設', b.buildProgress / Math.max(1, def.buildPoints)))
+      parts.push(bar(b.damaged ? '修理' : '建設', b.buildProgress / Math.max(1, def.buildPoints)))
+      if (b.damaged) parts.push('<div class="cost">浸水で傷んだ — 直しに来るのを待っている</div>')
       return parts.join('')
+    }
+    const depth = this.world.water.depth[b.i]
+    if (depth > 0.05 && canFlood(b)) {
+      parts.push(`<div class="cost">水が来ている（深さ ${depth.toFixed(2)}）</div>`)
     }
     if (def.recipe) {
       const crop = def.kind === 'farm' || def.kind === 'paddy'

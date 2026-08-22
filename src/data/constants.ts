@@ -68,6 +68,18 @@ export const TREE_GROW_TICKS = TICKS_PER_DAY * 6
 export const CROP_GROW_TICKS = TICKS_PER_DAY * 3
 export const PLANT_DIE_TICKS = TICKS_PER_DAY * 2 // 乾燥に耐えられる時間
 
+// --- 浸水 -----------------------------------------------------------------
+// 深さで段階が分かれる。浅い浸水は不便、深い浸水は損害。
+export const FLOOD_CROP_DEPTH = 0.1 // 畑の作物が流される水深（水田は別）
+export const FLOOD_TREE_DEPTH = 0.3 // 木が根腐れを起こす水深
+export const FLOOD_ROAD_DEPTH = 0.3 // 道が流される水深
+export const FLOOD_ROAD_WASH_CHANCE = 0.25 // 日ごとに道が流される確率
+export const FLOOD_STOP_DEPTH = 0.35 // 床上まで水が来て建物が働けなくなる水深
+export const FLOOD_SPOIL_RATE = 0.12 // 浸かった蔵で日ごとに傷む蓄えの割合
+export const FLOOD_DAMAGE_DEPTH = 0.5 // 建物が傷み始める水深
+export const FLOOD_DAMAGE_CHANCE = 0.1 // 日ごとに傷む確率（水深 1.0 のとき）
+export const FLOOD_LEFTOVER = 0.3 // 傷んだ建物に残る建設の進み具合
+
 // --- 火事 -----------------------------------------------------------------
 // 木と紙と藁の村なので、火が出れば町ごと持っていかれる。
 export const FIRE_TICK_INTERVAL = 10 // 延焼判定の間隔

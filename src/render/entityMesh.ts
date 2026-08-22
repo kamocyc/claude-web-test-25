@@ -424,6 +424,7 @@ export class EntityMeshes {
       const z = grid.yOf(b.i) + 0.5
       const base = grid.ground[b.i]
       if (!b.built) {
+        // 傷んだ建物も「建設中」として足場を描く（修理を待っている状態）
         const t = def.buildPoints > 0 ? b.buildProgress / def.buildPoints : 1
         dummy.position.set(x, base + 0.15 + t * 0.4, z)
         dummy.scale.set(0.9, 0.3 + t * 0.8, 0.9)
