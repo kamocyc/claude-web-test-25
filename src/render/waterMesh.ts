@@ -51,8 +51,13 @@ void main() {
 
 /**
  * 水面メッシュ。列の角ごとに 1 頂点を持つ格子で、頂点の高さは接する列のうち
- * 最も高い水面に合わせる。こうすると水際は自然に地形へ潜り込み、ダムの越流部は
- * 滑らかなスロープになるので、別途スカートを張らなくても水塊が立体的に見える。
+ * 最も高い水面に合わせる。こうするとダムの越流部が滑らかなスロープになるので、
+ * 別途スカートを張らなくても水塊が立体的に見える。
+ *
+ * 面を張るのは濡れている列だけで、角の水深は「接する 4 列のうち濡れている分」の
+ * 平均にする。こうすると水際で水深が 0 に近づき、シェーダ側の discard と
+ * アルファで自然に消える。乾いた列にまで面を広げると、片方の角だけが水面に
+ * 引っ張られた大きな三角形が陸地の上に描かれてしまう。
  */
 export class WaterMesh {
   readonly mesh: THREE.Mesh
@@ -122,10 +127,11 @@ export class WaterMesh {
       for (let vx = 0; vx < vw; vx++) {
         const vi = vy * vw + vx
         let surf = -Infinity
-        let deep = 0
+        let sum = 0
         let fx = 0
         let fy = 0
         let n = 0
+        let touch = 0
         let solid = 0
         for (let dy = -1; dy <= 0; dy++) {
           for (let dx = -1; dx <= 0; dx++) {
@@ -133,19 +139,22 @@ export class WaterMesh {
             const y = vy + dy
             if (!grid.inBounds(x, y)) continue
             const i = grid.idx(x, y)
+            touch++
             if (grid.ground[i] > solid) solid = grid.ground[i]
             if (water.depth[i] <= DRY_EPSILON) continue
             const s = water.surface(i)
             if (s > surf) surf = s
-            if (water.depth[i] > deep) deep = water.depth[i]
+            sum += water.depth[i]
             water.flowAt(i, this.flowTmp)
             fx += this.flowTmp.x
             fy += this.flowTmp.y
             n++
           }
         }
+        // 高さは接する水面のうち最も高いものに合わせる（列の境目に隙間ができない）。
+        // 水深は乾いた列を 0 として平均するので、水際へ向かってなだらかに 0 になる。
         positions[vi * 3 + 1] = n > 0 ? surf : solid
-        depths[vi] = n > 0 ? deep : 0
+        depths[vi] = n > 0 ? sum / touch : 0
         flows[vi * 2] = n > 0 ? fx / n : 0
         flows[vi * 2 + 1] = n > 0 ? fy / n : 0
       }
@@ -157,18 +166,18 @@ export class WaterMesh {
   }
 
   /**
-   * 水のあるセル（と、水際が滑らかにつながるようその 1 マス隣）だけ面を張る。
-   * 乾いた土地にまで面を張ると、地形とほぼ同じ高さで重なって余計な影や
-   * ちらつきの原因になるうえ、描画も無駄になる。
+   * 濡れている列だけ面を張る。乾いた列にまで広げると、その角の高さが隣の地形
+   * （崖の天端になることもある）に引っ張られる一方で水深は隣の列のまま残るため、
+   * 陸地の上に斜めの水面が描かれてしまう。描画の無駄でもある。
    */
   private rebuildFaces(): void {
-    const { grid } = this.world
+    const { grid, water } = this.world
     const vw = grid.w + 1
     const { index } = this
     let n = 0
     for (let y = 0; y < grid.h; y++) {
       for (let x = 0; x < grid.w; x++) {
-        if (!this.nearWet(x, y)) continue
+        if (water.depth[grid.idx(x, y)] <= DRY_EPSILON) continue
         const a = y * vw + x
         index[n] = a
         index[n + 1] = a + vw
@@ -182,18 +191,5 @@ export class WaterMesh {
     const attr = this.geom.getIndex() as THREE.BufferAttribute
     attr.needsUpdate = true
     this.geom.setDrawRange(0, n)
-  }
-
-  private nearWet(x: number, y: number): boolean {
-    const { grid, water } = this.world
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        const nx = x + dx
-        const ny = y + dy
-        if (nx < 0 || ny < 0 || nx >= grid.w || ny >= grid.h) continue
-        if (water.depth[grid.idx(nx, ny)] > DRY_EPSILON) return true
-      }
-    }
-    return false
   }
 }
