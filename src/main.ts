@@ -1,0 +1,213 @@
+import * as THREE from 'three'
+import { Game } from './core/game'
+import { TICK_DT } from './data/constants'
+import { BuildingDef } from './data/buildings'
+import { canPlace, place } from './sim/structures'
+import { SceneView } from './render/scene'
+import { TerrainMesh } from './render/terrainMesh'
+import { WaterMesh } from './render/waterMesh'
+import { EntityMeshes } from './render/entityMesh'
+import { Ghost } from './render/ghost'
+import { Hud } from './ui/hud'
+import { BuildMenu } from './ui/buildMenu'
+import { Inspector } from './ui/inspector'
+import { loadFromStorage, saveToStorage } from './save/save'
+
+const canvas = document.getElementById('view') as HTMLCanvasElement
+const game = new Game({ w: 80, h: 80, seed: Math.floor(Math.random() * 1e6) })
+const world = game.world
+
+const view = new SceneView(canvas, world.grid)
+const terrain = new TerrainMesh(world)
+const water = new WaterMesh(world)
+const entities = new EntityMeshes()
+const ghost = new Ghost()
+view.scene.add(terrain.group, water.mesh, entities.group, ghost.mesh)
+view.target.set(world.grid.xOf(world.startI), 0, world.grid.yOf(world.startI))
+
+// デバッグ用に主要オブジェクトを公開する（レイヤの表示切り替えなどに使う）
+;(window as unknown as { game: unknown }).game = { game, view, terrain, water, entities }
+
+const inspector = new Inspector(world)
+const hud = new Hud(
+  (s) => {
+    speed = s
+  },
+  (action) => {
+    if (action === 'save') {
+      saveToStorage(world)
+      world.pushLog('セーブした')
+      return
+    }
+    if (loadFromStorage(world)) {
+      inspector.clear()
+      terrain.rebuildAll()
+      game.path.refresh(world.water)
+      world.pushLog('セーブデータを読み込んだ')
+    } else {
+      world.pushLog('読み込めるセーブデータがない')
+    }
+  },
+)
+let selectedDef: BuildingDef | null = null
+const menu = new BuildMenu((def) => {
+  selectedDef = def
+  if (def) inspector.clear()
+  else ghost.hide()
+})
+
+// --- 入力 -----------------------------------------------------------------
+let speed = 1
+let hover = -1
+let dragging = false
+let dragX = 0
+let dragY = 0
+const keys = new Set<string>()
+const tooltip = document.getElementById('tooltip') as HTMLElement
+
+canvas.addEventListener('pointermove', (e) => {
+  if (dragging) {
+    const k = view.dist * 0.0016
+    view.pan(-(e.clientX - dragX) * k, -(e.clientY - dragY) * k)
+    dragX = e.clientX
+    dragY = e.clientY
+    return
+  }
+  hover = view.pickColumn(e.clientX, e.clientY)
+  updateGhost()
+  updateTooltip(e.clientX, e.clientY)
+})
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.button === 0) {
+    onClick()
+    return
+  }
+  dragging = true
+  dragX = e.clientX
+  dragY = e.clientY
+  canvas.setPointerCapture(e.pointerId)
+})
+canvas.addEventListener('pointerup', (e) => {
+  dragging = false
+  if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
+})
+canvas.addEventListener('contextmenu', (e) => e.preventDefault())
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault()
+  view.zoom(e.deltaY * 0.0012)
+}, { passive: false })
+addEventListener('keydown', (e) => {
+  keys.add(e.key.toLowerCase())
+  if (e.key === 'Escape') {
+    menu.select(null)
+    inspector.clear()
+    ghost.hide()
+  }
+})
+addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()))
+
+function onClick(): void {
+  if (hover < 0) return
+  if (selectedDef) {
+    const def = selectedDef
+    if (!canPlace(world, def, hover).ok) return
+    place(world, def, hover)
+    return
+  }
+  // 建物か住民を選ぶ
+  const b = world.buildingOn(hover)
+  if (b) {
+    inspector.selectBuilding(b)
+    return
+  }
+  const cx = world.grid.xOf(hover) + 0.5
+  const cy = world.grid.yOf(hover) + 0.5
+  let best = null
+  let bestD = 1.4
+  for (const c of world.citizens) {
+    const d = Math.hypot(c.x - cx, c.y - cy)
+    if (d < bestD) {
+      bestD = d
+      best = c
+    }
+  }
+  if (best) inspector.selectCitizen(best)
+  else inspector.clear()
+}
+
+function updateGhost(): void {
+  if (!selectedDef || hover < 0) {
+    ghost.hide()
+    return
+  }
+  ghost.show(world, selectedDef, hover, canPlace(world, selectedDef, hover).ok)
+}
+
+function updateTooltip(x: number, y: number): void {
+  if (hover < 0) {
+    tooltip.classList.add('hidden')
+    return
+  }
+  const parts: string[] = []
+  if (selectedDef) {
+    const check = canPlace(world, selectedDef, hover)
+    parts.push(check.ok ? selectedDef.name : `${selectedDef.name}：${check.reason}`)
+  }
+  const depth = world.water.depth[hover]
+  parts.push(`標高 ${world.grid.ground[hover]}`)
+  if (depth > 0.01) parts.push(`水深 ${depth.toFixed(2)}`)
+  const wet = world.irrigation.soilWet[hover]
+  if (depth <= 0.01) parts.push(wet > 0.5 ? '湿った土' : '乾いた土')
+  tooltip.innerHTML = parts.join(' ・ ')
+  tooltip.style.left = `${x + 14}px`
+  tooltip.style.top = `${y + 16}px`
+  tooltip.classList.remove('hidden')
+}
+
+function handleKeys(dt: number): void {
+  const k = view.dist * dt * 1.2
+  if (keys.has('w') || keys.has('arrowup')) view.pan(0, -k)
+  if (keys.has('s') || keys.has('arrowdown')) view.pan(0, k)
+  if (keys.has('a') || keys.has('arrowleft')) view.pan(-k, 0)
+  if (keys.has('d') || keys.has('arrowright')) view.pan(k, 0)
+  if (keys.has('q')) view.rotate(dt * 1.2)
+  if (keys.has('e')) view.rotate(-dt * 1.2)
+}
+
+// --- ループ ---------------------------------------------------------------
+let acc = 0
+let last = performance.now()
+setInterval(() => saveToStorage(world), 120000) // 2 分ごとに自動セーブ
+let frame = 0
+const clock = new THREE.Clock()
+
+function loop(now: number): void {
+  requestAnimationFrame(loop)
+  const dt = Math.min(0.25, (now - last) / 1000)
+  last = now
+  handleKeys(dt)
+
+  acc += dt * speed
+  let steps = 0
+  while (acc >= TICK_DT && steps < 40) {
+    game.step()
+    acc -= TICK_DT
+    steps++
+  }
+  const alpha = speed > 0 ? Math.min(1, acc / TICK_DT) : 1
+
+  frame++
+  if (steps > 0 || frame % 4 === 0) water.update(clock.getElapsedTime())
+  if (frame % 10 === 0) terrain.syncFromGrid()
+  if (frame % 30 === 0) terrain.refreshColors()
+  entities.update(world, alpha)
+  view.setSeasonLight(world.season.kind === 'drought' ? Math.min(1, world.season.elapsed / 400) : 0)
+  view.updateCamera()
+  view.render()
+
+  hud.update(world)
+  menu.update(world)
+  inspector.update()
+  if (selectedDef) updateGhost()
+}
+requestAnimationFrame(loop)
