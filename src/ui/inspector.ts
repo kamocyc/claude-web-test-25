@@ -14,6 +14,7 @@ const TASK_LABEL: Record<string, string> = {
   sleep: '休んでいる',
   work: '働いている',
   build: '建設している',
+  fight: '火を消している',
 }
 
 /**
@@ -109,6 +110,10 @@ export class Inspector {
   private buildingBody(b: Building): string {
     const def = defOf(b.defId)
     const parts: string[] = []
+    if (b.fire > 0) {
+      parts.push(bar('火の勢い', b.fire))
+      parts.push(`<div class="cost">${b.detected ? '火消しが向かっている' : 'まだ誰も気づいていない'}</div>`)
+    }
     if (!b.built) {
       parts.push(bar('建設', b.buildProgress / Math.max(1, def.buildPoints)))
       return parts.join('')

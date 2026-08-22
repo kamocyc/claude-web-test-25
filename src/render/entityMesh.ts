@@ -6,6 +6,7 @@ import { BuildingKind, defOf } from '../data/buildings'
 const MAX_PER_KIND = 400
 const MAX_TREES = 6000
 const MAX_CITIZENS = 600
+const MAX_FLAMES = 400
 
 const dummy = new THREE.Object3D()
 const tint = new THREE.Color()
@@ -151,6 +152,14 @@ function broadleaf(): THREE.BufferGeometry {
     part(new THREE.IcosahedronGeometry(0.28, 0), 0x5d9c4c, 0.18, 1.15, 0.12),
   )
 }
+/** 炎。明かりを落とさない素の色で描くので、暗い大雨の空でもよく目立つ */
+function flame(): THREE.BufferGeometry {
+  return merge(
+    part(new THREE.ConeGeometry(0.2, 0.85, 6), 0xff7a1f, 0, 0.42),
+    part(new THREE.ConeGeometry(0.1, 0.5, 6), 0xffe066, 0, 0.78),
+  )
+}
+
 function person(): THREE.BufferGeometry {
   return merge(
     part(new THREE.CapsuleGeometry(0.15, 0.3, 3, 7), 0xe8dcc6, 0, 0.3),
@@ -176,6 +185,7 @@ export class EntityMeshes {
   private readonly sites: THREE.InstancedMesh
   private readonly trees: THREE.InstancedMesh[]
   private readonly people: THREE.InstancedMesh
+  private readonly flames: THREE.InstancedMesh
   /** 樹木は動かないので毎フレーム作り直さない */
   private treeFrame = 0
 
@@ -197,13 +207,47 @@ export class EntityMeshes {
       instanced(broadleaf(), solid(), MAX_TREES),
     ]
     this.people = instanced(person(), solid(), MAX_CITIZENS)
-    this.group.add(this.sites, ...this.trees, this.people)
+    this.flames = instanced(
+      flame(),
+      new THREE.MeshBasicMaterial({ color: 0xffffff, vertexColors: true, transparent: true, opacity: 0.9 }),
+      MAX_FLAMES,
+    )
+    this.flames.castShadow = false
+    this.flames.receiveShadow = false
+    this.group.add(this.sites, ...this.trees, this.people, this.flames)
   }
 
   update(world: World, alpha: number): void {
     this.updateBuildings(world)
     if (this.treeFrame++ % 15 === 0) this.updateTrees(world)
     this.updatePeople(world, alpha)
+    this.updateFlames(world)
+  }
+
+  /** 燃えている建物と樹木の上に炎を立てる。勢いに応じて大きくし、少し揺らす */
+  private updateFlames(world: World): void {
+    const { grid } = world
+    let n = 0
+    const t = world.tick * 0.35
+    const put = (i: number, base: number, heat: number) => {
+      if (n >= MAX_FLAMES) return
+      const h = Math.min(1, heat)
+      const s = 0.32 + h * 0.42 + Math.sin(t + i) * 0.05
+      dummy.position.set(grid.xOf(i) + 0.5, base, grid.yOf(i) + 0.5)
+      dummy.rotation.set(0, t * 0.5 + i, 0)
+      dummy.scale.set(s, s * (1.1 + Math.sin(t * 1.7 + i) * 0.12), s)
+      dummy.updateMatrix()
+      this.flames.setMatrixAt(n++, dummy.matrix)
+    }
+    for (const b of world.buildings) {
+      // 屋根のあたりから火の手が上がるようにする
+      if (b.fire > 0) put(b.i, grid.ground[b.i] + defOf(b.defId).height * 0.85, b.fire)
+    }
+    for (let i = 0; i < world.treeFire.length; i++) {
+      if (world.treeFire[i] > 0) put(i, grid.ground[i] + 0.7, world.treeFire[i])
+    }
+    this.flames.count = n
+    this.flames.instanceMatrix.needsUpdate = true
   }
 
   private updateBuildings(world: World): void {

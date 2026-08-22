@@ -10,6 +10,7 @@ import {
 } from '../data/constants'
 import { PathFinder } from './pathfinding'
 import { completeBuild } from './structures'
+import { fightFire } from './fire'
 
 const ARRIVE_EPS = 0.06
 
@@ -77,7 +78,7 @@ function updateCitizen(world: World, path: PathFinder, c: Citizen, quota: BuildQ
   c.px = c.x
   c.py = c.y
 
-  // 需要が逼迫したら作業を中断して再判断する
+  // 需要が逼迫したら作業を中断して再判断する（消火だけは中断しない）
   if ((c.task === 'work' || c.task === 'build') && urgentNeed(c) !== null) c.task = 'idle'
   if (c.task === 'idle') decideTask(world, path, c, quota)
   if (c.task === 'idle') return true
@@ -97,6 +98,13 @@ function urgentNeed(c: Citizen): 'sleep' | 'water' | 'food' | null {
   return null
 }
 
+/** 火消し詰所に勤めているか */
+function isFirefighter(world: World, c: Citizen): boolean {
+  if (c.jobId < 0) return false
+  const job = world.buildingById(c.jobId)
+  return !!job && job.built && defOf(job.defId).kind === 'firehouse'
+}
+
 function decideTask(world: World, path: PathFinder, c: Citizen, quota: BuildQuota): void {
   // 需要は優先度順に独立して見る。住居が無いからといって水を飲みに行かない、
   // というようなことが起きないようにする。
@@ -107,6 +115,10 @@ function decideTask(world: World, path: PathFinder, c: Citizen, quota: BuildQuot
       travelTo(world, path, c, 'drink', (b) => b.built && !!defOf(b.defId).storage)) return
   if (n.food < NEED_SEEK_THRESHOLD && (world.stock.meal > 0 || world.stock.wheat > 0) &&
       travelTo(world, path, c, 'eat', (b) => b.built && !!defOf(b.defId).storage)) return
+
+  // 見つかった火事があれば、火消しは何をおいても駆けつける
+  if (isFirefighter(world, c) &&
+      travelTo(world, path, c, 'fight', (b) => b.built && b.fire > 0 && b.detected)) return
 
   // 工事が残っていれば、職場があっても何人かは建設に回る
   if (quota.current < quota.wanted && travelTo(world, path, c, 'build', (b) => !b.built)) {
@@ -216,6 +228,13 @@ function act(world: World, path: PathFinder, c: Citizen): void {
     case 'sleep':
       c.needs.sleep = Math.min(1, c.needs.sleep + 0.01)
       if (c.needs.sleep >= 1) c.task = 'idle'
+      break
+    case 'fight':
+      if (b.fire <= 0) {
+        c.task = 'idle'
+        break
+      }
+      fightFire(world, b)
       break
     case 'work':
       if (!b.built) {

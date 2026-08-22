@@ -28,6 +28,9 @@ export type BuildingKind =
   | 'mill'
   | 'storage'
   | 'wharf'
+  | 'firetower'
+  | 'firehouse'
+  | 'barrel'
   | 'road'
   | 'levee'
   | 'dam'
@@ -41,7 +44,7 @@ export interface BuildingDef {
   name: string
   desc: string
   kind: BuildingKind
-  category: 'water' | 'terrain' | 'living' | 'industry'
+  category: 'water' | 'terrain' | 'living' | 'safety' | 'industry'
   cost: Partial<Stock>
   /** 建設に必要な作業 tick */
   buildPoints: number
@@ -52,6 +55,10 @@ export interface BuildingDef {
   /** 働き手を配属する優先度（大きいほど先に埋まる）。生きるのに要る仕事を優先する。 */
   jobPriority?: number
   radius?: number
+  /** 竈や炉を使うので、ここから火が出る */
+  fireProne?: boolean
+  /** 土壁で囲われていて燃えない */
+  fireproof?: boolean
   /** 描画用 */
   color: number
   height: number
@@ -70,6 +77,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     workers: 0,
     storage: 80,
     housing: 3,
+    fireProne: true,
     color: 0xd9a441,
     height: 1.6,
     placement: 'land',
@@ -84,6 +92,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     buildPoints: 120,
     workers: 0,
     housing: 4,
+    fireProne: true,
     color: 0xc8825a,
     height: 1.3,
     placement: 'land',
@@ -175,6 +184,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     jobPriority: 5,
     radius: 8,
     recipe: { out: { log: 2 }, ticks: 50 },
+    fireProne: true,
     color: 0x6f8f4a,
     height: 1.2,
     placement: 'land',
@@ -190,6 +200,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     workers: 2,
     jobPriority: 4,
     recipe: { in: { log: 2 }, out: { plank: 1 }, ticks: 45 },
+    fireProne: true,
     color: 0x8a6b45,
     height: 1.4,
     placement: 'land',
@@ -235,7 +246,66 @@ export const BUILDINGS: readonly BuildingDef[] = [
     workers: 2,
     jobPriority: 7,
     recipe: { in: { rice: 2, water: 1 }, out: { meal: 3 }, ticks: 60 },
+    fireProne: true,
     color: 0xd8b46a,
+    height: 1.4,
+    placement: 'land',
+  },
+  {
+    id: 'firetower',
+    name: '火の見櫓',
+    desc: '半鐘を吊るした物見櫓。番人がいれば周囲 14 マスの火事をその場で見つけられる。範囲の外は気づくのが遅れ、その間に燃え広がる。',
+    kind: 'firetower',
+    category: 'safety',
+    cost: { log: 8, plank: 2 },
+    buildPoints: 150,
+    workers: 1,
+    jobPriority: 9,
+    radius: 14,
+    color: 0x8b6f4a,
+    height: 3.2,
+    placement: 'land',
+  },
+  {
+    id: 'firehouse',
+    name: '火消し詰所',
+    desc: '町火消しが詰める小屋。見つかった火事へ駆けつけて消し止める。火元の近くに水があれば消火は 4 倍速い。',
+    kind: 'firehouse',
+    category: 'safety',
+    cost: { log: 6, plank: 4 },
+    buildPoints: 160,
+    workers: 3,
+    jobPriority: 9,
+    color: 0xa85a48,
+    height: 1.3,
+    placement: 'land',
+  },
+  {
+    id: 'barrel',
+    name: '天水桶',
+    desc: '軒先に据える防火用水。周囲 6 マスの火事で使える。水路の通らない町なかに置く。',
+    kind: 'barrel',
+    category: 'safety',
+    cost: { plank: 2 },
+    buildPoints: 25,
+    workers: 0,
+    fireproof: true,
+    color: 0x5f7a86,
+    height: 0.5,
+    placement: 'land',
+  },
+  {
+    id: 'dozo',
+    name: '土蔵',
+    desc: 'なまこ壁の蔵。値は張るが火に強く、燃え移らない。大事な蓄えはここへ。',
+    kind: 'storage',
+    category: 'living',
+    cost: { log: 6, plank: 8 },
+    buildPoints: 200,
+    workers: 0,
+    storage: 80,
+    fireproof: true,
+    color: 0xd8d4c8,
     height: 1.4,
     placement: 'land',
   },

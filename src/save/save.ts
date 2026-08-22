@@ -41,6 +41,7 @@ interface SaveData {
   hasTree: number[]
   treeGrowth: number[]
   treeDry: number[]
+  treeFire: number[]
   sources: { i: number; strength: number }[]
   startI: number
   buildings: Building[]
@@ -86,6 +87,7 @@ export function serialize(world: World): string {
     hasTree: Array.from(world.hasTree),
     treeGrowth: Array.from(world.treeGrowth),
     treeDry: Array.from(world.treeDry),
+    treeFire: Array.from(world.treeFire),
     sources: world.sources.map((s) => ({ ...s })),
     startI: world.startI,
     buildings: world.buildings.map((b) => ({ ...b, workers: [...b.workers] })),
@@ -120,6 +122,7 @@ export function deserializeInto(world: World, json: string): boolean {
   world.hasTree.set(data.hasTree)
   world.treeGrowth.set(data.treeGrowth)
   world.treeDry.set(data.treeDry)
+  world.treeFire.set(data.treeFire ?? [])
 
   world.tick = data.tick
   world.stock = { ...emptyStock(), ...data.stock }

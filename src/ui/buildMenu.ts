@@ -5,6 +5,7 @@ const CATEGORY_LABEL: Record<BuildingDef['category'], string> = {
   water: '水を操る',
   terrain: '地形',
   living: '暮らし',
+  safety: '火の用心',
   industry: '生産',
 }
 
@@ -15,7 +16,7 @@ export class BuildMenu {
   private readonly buttons = new Map<string, HTMLButtonElement>()
 
   constructor(private readonly onSelect: (def: BuildingDef | null) => void) {
-    const cats: BuildingDef['category'][] = ['water', 'terrain', 'living', 'industry']
+    const cats: BuildingDef['category'][] = ['water', 'terrain', 'living', 'safety', 'industry']
     for (const cat of cats) {
       const box = document.createElement('div')
       box.className = 'bcat'

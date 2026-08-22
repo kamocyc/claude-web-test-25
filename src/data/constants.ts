@@ -68,6 +68,25 @@ export const TREE_GROW_TICKS = TICKS_PER_DAY * 6
 export const CROP_GROW_TICKS = TICKS_PER_DAY * 3
 export const PLANT_DIE_TICKS = TICKS_PER_DAY * 2 // 乾燥に耐えられる時間
 
+// --- 火事 -----------------------------------------------------------------
+// 木と紙と藁の村なので、火が出れば町ごと持っていかれる。
+export const FIRE_TICK_INTERVAL = 10 // 延焼判定の間隔
+export const IGNITE_CHANCE_PER_DAY = 0.008 // 火を使う建物 1 軒あたりの出火率（季節で増減）
+export const FIRE_GROW = 0.004 // 勢いの増し方 /tick（0 → 1 でおよそ 1 日）
+export const FIRE_BURN_TICKS = 120 // 勢いが頭打ちになってから焼け落ちるまで
+export const FIRE_SPREAD_MIN = 0.35 // これ未満の火は燃え移らない
+export const FIRE_SPREAD_RADIUS = 2
+export const FIRE_SPREAD_CHANCE = 0.05
+export const FIRE_BREAK_FACTOR = 0.05 // 間に水があるときの延焼しやすさ
+export const FIRE_WATER_DEPTH = 0.3 // 防火用水とみなす水深
+export const FIRE_WATER_RADIUS = 6 // 火元から水までの距離
+export const EXTINGUISH_RATE = 0.008 // 火消しひとりが 1 tick で削る勢い
+export const EXTINGUISH_DRY_FACTOR = 0.25 // 防火用水が無いときの倍率
+export const FIRE_UNSEEN_TICKS = 150 // 火の見櫓の範囲外だと発見が遅れる
+export const FIRE_RAIN_QUENCH = 0.01 // 大雨が火を消す速さ /tick
+export const TREE_FIRE_GROW = 0.01
+export const TREE_SPREAD_CHANCE = 0.06
+
 // --- 季節 -----------------------------------------------------------------
 // 平年・大雨・日照りをランダムに引く。キーは SeasonKind と一致させる。
 /** 季節の長さ [日]（下限, 上限）。日照りは通過するたびに下限が伸びる */

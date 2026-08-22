@@ -25,6 +25,14 @@ export interface Building {
   stack: number
   /** 建設待ちの追加段数（土手・掘削）*/
   pending: number
+  /** 火の勢い 0..1（0 = 燃えていない） */
+  fire: number
+  /** 出火してから発見されるまでの経過 tick */
+  fireTicks: number
+  /** 勢いが頭打ちになってからの経過 tick。焼け落ちるまでの猶予 */
+  burnTicks: number
+  /** 火事が村に知られているか。火の見櫓があれば即座に知れる */
+  detected: boolean
   /** 蔵へまだ運べていない荷 */
   load: number
   /** 荷の種類（空なら荷なし） */
@@ -41,7 +49,7 @@ export interface CitizenNeeds {
   sleep: number
 }
 
-export type TaskKind = 'idle' | 'drink' | 'eat' | 'sleep' | 'work' | 'build'
+export type TaskKind = 'idle' | 'drink' | 'eat' | 'sleep' | 'work' | 'build' | 'fight'
 
 export interface Citizen {
   id: number
@@ -91,6 +99,8 @@ export class World {
   readonly hasTree: Uint8Array
   readonly treeGrowth: Float64Array
   readonly treeDry: Float64Array
+  /** 燃えている木の勢い */
+  readonly treeFire: Float64Array
 
   citizens: Citizen[] = []
   nextCitizenId = 1
@@ -109,6 +119,7 @@ export class World {
     this.hasTree = new Uint8Array(grid.size)
     this.treeGrowth = new Float64Array(grid.size)
     this.treeDry = new Float64Array(grid.size)
+    this.treeFire = new Float64Array(grid.size)
   }
 
   // --- 在庫 ---------------------------------------------------------------
@@ -156,6 +167,10 @@ export class World {
       pending: 0,
       load: 0,
       loadKind: '',
+      fire: 0,
+      fireTicks: 0,
+      burnTicks: 0,
+      detected: false,
       active: false,
       status: built ? '' : '建設中',
     }

@@ -16,6 +16,7 @@ import { updateCitizens } from './citizens'
 import { moveLoads, updateProduction, updateVegetation } from './production'
 import { Logistics } from './logistics'
 import { SEASON_LABEL, SEASON_OMEN } from './season'
+import { igniteDaily, updateFire } from './fire'
 
 /** 1 tick の実行順序 */
 export function stepWorld(
@@ -71,12 +72,17 @@ export function stepWorld(
   const nextMoisture = updateProduction(world)
   moveLoads(world, logistics)
 
-  // 8. 日替わり
+  // 8. 火事（延焼・焼失。消火は住民の仕事なので citizens 側）
+  updateFire(world)
+
+  // 9. 日替わり
   if (newDay) onNewDay(world)
   return nextMoisture
 }
 
 function onNewDay(world: World): void {
+  igniteDaily(world)
+
   // 次の季節の前触れ。残り日数がちょうど閾値になった日に一度だけ出す
   const season = world.season
   if (season.forecast && season.daysLeft === SEASON_OMEN_DAYS) {
