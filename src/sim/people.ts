@@ -2,6 +2,7 @@ import { World } from '../core/world'
 import type { Citizen } from '../core/world'
 import { defOf } from '../data/buildings'
 import { NEED_SEEK_THRESHOLD, STARVE_TICKS, TICKS_PER_DAY } from '../data/constants'
+import { idleByWater } from './production'
 
 /** 住民が抱えている不足。三つの需要にそのまま対応する */
 export type Ailment = 'water' | 'food' | 'sleep'
@@ -107,6 +108,71 @@ export function summarize(world: World): VillageSummary {
     if (c.starveKind !== '') out.dying++
   }
   return out
+}
+
+/** 働き手の足りていない職場ひとつ */
+export interface StaffGap {
+  /** 建物 id（押してその建物へ寄るのに使う） */
+  id: number
+  /** 列番号 */
+  i: number
+  name: string
+  /** 足りない人数 */
+  missing: number
+}
+
+export interface Staffing {
+  /** 働き手の要る持ち場の総数 */
+  slots: number
+  /** 埋まっている数 */
+  filled: number
+  /** 足りない人数（= slots - filled） */
+  missing: number
+  /** どこが足りないか。足りない数の多い順、同じなら建て順 */
+  gaps: StaffGap[]
+}
+
+/**
+ * 人手の過不足。
+ *
+ * 「無役 N」（`summarize().jobless`）とは別のものを数えている。あちらは
+ * *職に就いていない人*、こちらは *人の来ていない持ち場*で、村の人数が足りていれば
+ * 前者だけが立ち、職場を建てすぎていれば後者だけが立つ。
+ *
+ * 建設中・修理待ちの建物は数えない（要るのは人手ではなく普請）。水に浸かった職場も
+ * 数えない。あそこは assignJobs が承知の上で人を外している（`idleByWater`）ので、
+ * 人手不足と言うと直しようのない不足がいつまでも出続ける。
+ *
+ * 数えるのは *配属* であって *出勤* ではない。出勤（`staffPresent`）は水を飲みに
+ * 行っただけでも欠けるので、tick ごとに揺れて読み物にならない。
+ */
+export function staffingOf(world: World): Staffing {
+  const out: Staffing = { slots: 0, filled: 0, missing: 0, gaps: [] }
+  for (const b of world.buildings) {
+    const def = defOf(b.defId)
+    if (!b.built || def.workers <= 0 || idleByWater(world, b)) continue
+    out.slots += def.workers
+    const filled = Math.min(def.workers, b.workers.length)
+    out.filled += filled
+    const missing = def.workers - filled
+    if (missing > 0) out.gaps.push({ id: b.id, i: b.i, name: def.name, missing })
+  }
+  out.missing = out.slots - out.filled
+  out.gaps.sort((a, b) => b.missing - a.missing || a.id - b.id)
+  return out
+}
+
+/**
+ * 「踏車 1・杣小屋 2」のような一行にまとめる。
+ * 同じ種類の職場は足し合わせる（「船着場 1・船着場 1」では読めない）。
+ */
+export function gapsText(gaps: readonly StaffGap[]): string {
+  const byName = new Map<string, number>()
+  for (const g of gaps) byName.set(g.name, (byName.get(g.name) ?? 0) + g.missing)
+  return [...byName]
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, missing]) => `${name} ${missing}`)
+    .join('・')
 }
 
 /** 力尽きたときのログ。先に尽きた需要をそのまま理由にする */

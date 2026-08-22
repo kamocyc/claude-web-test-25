@@ -1,5 +1,5 @@
 import { World } from '../core/world'
-import type { Citizen } from '../core/world'
+import type { Building, Citizen } from '../core/world'
 import {
   AILMENTS,
   AILMENT_LABEL,
@@ -8,6 +8,8 @@ import {
   ailmentsOf,
   daysText,
   jobNameOf,
+  staffingOf,
+  type Staffing,
   summarize,
   ticksToDeath,
 } from '../sim/people'
@@ -29,6 +31,10 @@ interface Row {
  * 名前・肩書き・いましていること・足りていないものを一枚に並べ、
  * 見出しに「飢え 3」と人数を出す。行を押すとその人を選んで寄る。
  *
+ * 見出しの下には、人の来ていない持ち場を並べる。「人手不足 3」と数だけ言われても
+ * どこが空いているのかは村を見て回るしかないので、職場の名前で出して、
+ * 押せばそこへ寄れるようにする。
+ *
  * 行は**使い回す**。毎フレーム innerHTML を作り直すと、押した瞬間に要素が
  * 差し替わってクリックが取れない（並び替えは appendChild で動かすだけなので、
  * 要素は生きたまま入れ替わる）。
@@ -37,20 +43,29 @@ export class Roster {
   private readonly panel = document.getElementById('roster') as HTMLElement
   private readonly head = document.getElementById('roster-head') as HTMLElement
   private readonly list = document.getElementById('roster-list') as HTMLElement
+  private readonly gaps = document.getElementById('roster-gaps') as HTMLElement
   private readonly rows = new Map<number, Row>()
   private lastHead = ''
+  private lastGaps = ''
   private selected = -1
   open = false
 
   constructor(
     private readonly world: World,
     onSelect: (c: Citizen) => void,
+    onSelectBuilding: (b: Building) => void,
   ) {
     this.list.addEventListener('click', (e) => {
       const row = (e.target as HTMLElement).closest('button')
       if (!row?.dataset.citizen) return
       const c = this.world.citizens.find((x) => x.id === Number(row.dataset.citizen))
       if (c) onSelect(c)
+    })
+    this.gaps.addEventListener('click', (e) => {
+      const row = (e.target as HTMLElement).closest('button')
+      if (!row?.dataset.building) return
+      const b = this.world.buildingById(Number(row.dataset.building))
+      if (b) onSelectBuilding(b)
     })
   }
 
@@ -70,7 +85,10 @@ export class Roster {
 
   update(): void {
     if (!this.open) return
-    this.updateHead()
+    // 見出しと内訳で同じものを見るので、数えるのは 1 フレームに 1 度だけにする
+    const staff = staffingOf(this.world)
+    this.updateHead(staff)
+    this.updateGaps(staff)
 
     // 困っている人を上に出す。同じ重さなら id 順に固定して、並びが毎フレーム
     // 入れ替わらないようにする
@@ -92,7 +110,7 @@ export class Roster {
     }
   }
 
-  private updateHead(): void {
+  private updateHead(staff: Staffing): void {
     const s = summarize(this.world)
     const chips: string[] = [`<span class="chip">${s.total} 人</span>`]
     for (const kind of AILMENTS) {
@@ -103,10 +121,28 @@ export class Roster {
       }
     }
     if (s.jobless > 0) chips.push(`<span class="chip">無役 ${s.jobless}</span>`)
+    if (staff.missing > 0) chips.push(`<span class="chip warn">人手不足 ${staff.missing}</span>`)
     const html = chips.join('')
     if (html === this.lastHead) return
     this.lastHead = html
     this.head.innerHTML = html
+  }
+
+  /**
+   * 人の来ていない持ち場。中身が変わったときだけ書き換える
+   * （毎フレーム作り直すと、押した瞬間に要素が差し替わってクリックが取れない）。
+   */
+  private updateGaps(staff: Staffing): void {
+    const html = staff.gaps
+      .map(
+        (g) =>
+          `<button class="grow" data-building="${g.id}" title="ここへ寄る">` +
+          `<span>${g.name}</span><b>あと ${g.missing} 人</b></button>`,
+      )
+      .join('')
+    if (html === this.lastGaps) return
+    this.lastGaps = html
+    this.gaps.innerHTML = html
   }
 
   private addRow(c: Citizen): Row {

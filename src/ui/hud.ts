@@ -1,7 +1,7 @@
 import { World } from '../core/world'
 import { RESOURCES, RESOURCE_LABEL } from '../data/buildings'
 import { SEASON_LABEL, severeDayRange } from '../sim/season'
-import { AILMENTS, AILMENT_LABEL, shortageOf, summarize } from '../sim/people'
+import { AILMENTS, AILMENT_LABEL, gapsText, shortageOf, staffingOf, summarize } from '../sim/people'
 
 export type StorageAction = 'save' | 'load' | 'sample'
 
@@ -11,12 +11,14 @@ export class Hud {
   private readonly season = document.getElementById('season') as HTMLElement
   private readonly population = document.getElementById('population') as HTMLElement
   private readonly trouble = document.getElementById('trouble') as HTMLElement
-  private readonly logBox = document.getElementById('log') as HTMLElement
+  private readonly staff = document.getElementById('staff') as HTMLElement
+  private readonly logBox = document.getElementById('log-list') as HTMLElement
   private lastLog = ''
   private lastResources = ''
   private lastSeason = ''
   private lastScale = ''
   private lastTrouble = ''
+  private lastStaff = ''
   private readonly harshBox = document.getElementById('harsh') as HTMLElement
 
   constructor(
@@ -85,6 +87,19 @@ export class Hud {
       this.lastTrouble = trouble
       this.trouble.textContent = trouble
       this.trouble.classList.toggle('hidden', trouble === '')
+    }
+
+    // 人の来ていない持ち場。どこが足りないかは印に触れば読める（内訳は住民の一覧にも出る）
+    const staff = staffingOf(world)
+    const staffKey = `${staff.missing}|${gapsText(staff.gaps)}`
+    if (staffKey !== this.lastStaff) {
+      this.lastStaff = staffKey
+      this.staff.textContent = `人手不足 ${staff.missing}`
+      this.staff.title =
+        staff.missing > 0
+          ? `人の来ていない持ち場：${gapsText(staff.gaps)}（住民の一覧に内訳が出る）`
+          : ''
+      this.staff.classList.toggle('hidden', staff.missing === 0)
     }
 
     // 荒天の長さは読み込みでも変わるので、押した瞬間ではなく世界の値を見て塗る

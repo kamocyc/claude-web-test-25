@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { Game } from './core/game'
 import { TICK_DT } from './data/constants'
+import type { Building } from './core/world'
 import { BuildingDef } from './data/buildings'
 import { canPlace, place } from './sim/structures'
 import { SceneView } from './render/scene'
@@ -13,6 +14,7 @@ import { Hud } from './ui/hud'
 import { BuildMenu } from './ui/buildMenu'
 import { Inspector } from './ui/inspector'
 import { Roster } from './ui/roster'
+import { setupPanels } from './ui/panels'
 import { deserializeInto, loadFromStorage, saveToStorage, serialize } from './save/save'
 import { createSampleGame } from './data/sampleTown'
 
@@ -75,12 +77,23 @@ function pickCitizen(c: { id: number; i: number }, focus: boolean): void {
   }
 }
 
-const roster = new Roster(world, (c) => pickCitizen(c, true))
+/** 建物を選んで右のパネルに出し、そこへ寄る（人手の足りない職場の一覧から使う） */
+function pickBuilding(b: Building): void {
+  menu.select(null)
+  roster.select(-1)
+  inspector.selectBuilding(b)
+  centerOn(b.i)
+  view.dist = Math.min(view.dist, 26)
+}
+
+const roster = new Roster(world, (c) => pickCitizen(c, true), pickBuilding)
 const peopleBtn = document.getElementById('people-btn') as HTMLButtonElement
 peopleBtn.addEventListener('click', () => {
   peopleBtn.classList.toggle('active', roster.toggle())
   roster.update()
 })
+
+setupPanels()
 
 let selectedDef: BuildingDef | null = null
 const menu = new BuildMenu((def) => {

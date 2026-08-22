@@ -13,6 +13,7 @@ import {
 import { Logistics, ROUTE_LABEL } from '../sim/logistics'
 import { demolish, setGateHeight } from '../sim/structures'
 import { canFlood } from '../sim/flood'
+import { idleByWater } from '../sim/production'
 import {
   AILMENT_LABEL,
   AILMENT_WARN,
@@ -34,6 +35,8 @@ type Selection = { kind: 'building'; id: number } | { kind: 'citizen'; id: numbe
  */
 export class Inspector {
   private readonly el = document.getElementById('inspector') as HTMLElement
+  /** 骨組みを書き込む先。畳むための見出しは外に置いてあるので、そこは触らない */
+  private readonly body = document.getElementById('insp-body') as HTMLElement
   private selection: Selection = null
   private key = ''
   private dyn: HTMLElement | null = null
@@ -89,10 +92,10 @@ export class Inspector {
       if (!b) return this.clear()
       this.ensureFrame(`b${b.id}`, () => this.buildingFrame(b))
       if (this.dyn) this.dyn.innerHTML = this.buildingBody(b)
-      for (const btn of this.el.querySelectorAll<HTMLButtonElement>('button[data-gate]')) {
+      for (const btn of this.body.querySelectorAll<HTMLButtonElement>('button[data-gate]')) {
         btn.classList.toggle('on', Number(btn.dataset.gate) === b.gateHeight)
       }
-      for (const btn of this.el.querySelectorAll<HTMLButtonElement>('button[data-prio]')) {
+      for (const btn of this.body.querySelectorAll<HTMLButtonElement>('button[data-prio]')) {
         btn.classList.toggle('on', Number(btn.dataset.prio) === b.priority)
       }
     } else {
@@ -107,8 +110,8 @@ export class Inspector {
   private ensureFrame(key: string, html: () => string): void {
     if (this.key === key && this.dyn?.isConnected) return
     this.key = key
-    this.el.innerHTML = html()
-    this.dyn = this.el.querySelector('#insp-dyn')
+    this.body.innerHTML = html()
+    this.dyn = this.body.querySelector('#insp-dyn')
   }
 
   private buildingFrame(b: Building): string {
@@ -162,7 +165,14 @@ export class Inspector {
           ` ・ ${ROUTE_LABEL[route]} ${ROUTE_RATE[route]}／日</div>`,
       )
     }
-    if (def.workers > 0) parts.push(`<div class="cost">働き手 ${b.workers.length} / ${def.workers}</div>`)
+    if (def.workers > 0) {
+      // 人が来ていない持ち場は赤で出す。上部の「人手不足 N」の内訳がここにあたる
+      const short = def.workers - b.workers.length > 0 && !idleByWater(this.world, b)
+      parts.push(
+        `<div class="cost${short ? ' bad-text' : ''}">働き手 ${b.workers.length} / ${def.workers}` +
+          `${short ? ' — 人手が足りない' : ''}</div>`,
+      )
+    }
     if (def.storage) parts.push(`<div class="cost">保管容量 +${def.storage}</div>`)
     if (def.housing) parts.push(`<div class="cost">寝床 ${def.housing}</div>`)
     return parts.join('')

@@ -4,6 +4,7 @@ import { World } from '../src/core/world'
 import type { Building } from '../src/core/world'
 import { defOf } from '../src/data/buildings'
 import { assignJobs, jobRank } from '../src/sim/citizens'
+import { gapsText, staffingOf } from '../src/sim/people'
 
 /**
  * 平らな土地。建物は完成済みで置き、住民は蔵の脇に湧かせる。
@@ -133,5 +134,97 @@ describe('働き手の割り当て', () => {
     saw.priority = 2
     pump.priority = 1
     expect(jobRank(saw)).toBeGreaterThan(jobRank(pump))
+  })
+})
+
+describe('人手の過不足', () => {
+  it('持ち場が埋まっていれば不足は無い', () => {
+    const w = village()
+    put(w, 'pump', 6) // 1 人
+    put(w, 'sawmill', 4) // 2 人
+    for (let n = 0; n < 3; n++) w.spawnCitizen(w.startI)
+    assignJobs(w)
+
+    const s = staffingOf(w)
+    expect(s.slots).toBe(3)
+    expect(s.filled).toBe(3)
+    expect(s.missing).toBe(0)
+    expect(s.gaps).toEqual([])
+  })
+
+  it('人が足りなければ、足りない人数とその職場が出る', () => {
+    const w = village()
+    put(w, 'pump', 6)
+    const saw = put(w, 'sawmill', 4)
+    w.spawnCitizen(w.startI) // 1 人しかいない。踏車が先に埋まる
+    assignJobs(w)
+
+    const s = staffingOf(w)
+    expect(s.missing).toBe(2)
+    expect(s.gaps).toEqual([{ id: saw.id, i: saw.i, name: '木挽小屋', missing: 2 }])
+    expect(gapsText(s.gaps)).toBe('木挽小屋 2')
+  })
+
+  it('足りない数の多い職場が先に並ぶ', () => {
+    const w = village()
+    const pump = put(w, 'pump', 6)
+    const saw = put(w, 'sawmill', 4)
+    const house = put(w, 'firehouse', 8) // 3 人
+    const s = staffingOf(w) // 誰も配属していない
+
+    expect(s.missing).toBe(6)
+    expect(s.gaps.map((g) => g.id)).toEqual([house.id, saw.id, pump.id])
+    expect(gapsText(s.gaps)).toBe('火消し詰所 3・木挽小屋 2・踏車 1')
+  })
+
+  it('建設中の建物は人手不足に数えない', () => {
+    const w = village()
+    w.createBuilding(defOf('sawmill'), w.grid.idx(4, 4), false)
+    expect(staffingOf(w).missing).toBe(0)
+    expect(staffingOf(w).slots).toBe(0)
+  })
+
+  it('水の合わない職場は数えない（人ではなく水が足りていない）', () => {
+    const w = village()
+    put(w, 'paddy', 6) // 水の無い田。assignJobs は承知の上で人を置かない
+    const farm = put(w, 'farm', 8)
+    const s = staffingOf(w)
+
+    expect(s.missing).toBe(1)
+    expect(s.gaps.map((g) => g.id)).toEqual([farm.id])
+  })
+
+  it('人を増やせば不足はその分だけ減る', () => {
+    const w = village()
+    put(w, 'pump', 6)
+    put(w, 'sawmill', 4)
+    expect(staffingOf(w).missing).toBe(3)
+
+    for (let n = 0; n < 2; n++) {
+      w.spawnCitizen(w.startI)
+      w.tick += 10
+      assignJobs(w)
+    }
+    expect(staffingOf(w).missing).toBe(1)
+  })
+
+  it('同じ種類の職場は一行にまとめて言う', () => {
+    const w = village()
+    put(w, 'wharf', 4)
+    put(w, 'wharf', 6)
+    put(w, 'pump', 8)
+    // 一覧は職場ごとに分かれているが、一行の要約では足し合わせる
+    expect(staffingOf(w).gaps.length).toBe(3)
+    expect(gapsText(staffingOf(w).gaps)).toBe('船着場 2・踏車 1')
+  })
+
+  it('「無役」と「人手不足」は別のものを数えている', () => {
+    // 職場が無いのに人だけいる村。持ち場は余っていないので人手は足りている
+    const w = village()
+    w.spawnCitizen(w.startI)
+    assignJobs(w)
+
+    expect(w.citizens[0].jobId).toBe(-1) // 無役
+    expect(staffingOf(w).missing).toBe(0) // でも人手不足ではない
   })
 })

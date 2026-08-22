@@ -11,11 +11,13 @@
     <canvas id="view"></canvas>
 
     <div id="hud" class="panel top">
+      <div class="phead"><span>里山</span><button class="pmin" data-min>−</button></div>
       <div class="row" id="resources"></div>
       <div class="sep"></div>
       <div class="row">
         <span id="season" class="chip"></span>
         <span id="population" class="chip"></span>
+        <span id="staff" class="chip warn hidden"></span>
         <span id="trouble" class="chip bad hidden"></span>
       </div>
       <div class="sep"></div>
@@ -36,8 +38,8 @@
         <button data-harsh="drought" data-scale="2" class="active">並</button>
         <button data-harsh="drought" data-scale="3">長</button>
       </div>
-      <div class="sep"></div>
-      <div class="row" id="speed">
+      <div class="sep keep"></div>
+      <div class="row keep" id="speed">
         <button data-speed="0">‖</button>
         <button data-speed="1" class="active">1x</button>
         <button data-speed="3">3x</button>
@@ -46,7 +48,7 @@
     </div>
 
     <div id="build" class="panel left">
-      <h2>建設</h2>
+      <div class="phead"><span>建設</span><button class="pmin" data-min>−</button></div>
       <div id="build-list"></div>
       <p class="hint">
         右ドラッグ / WASD で移動・ホイールで拡大<br />
@@ -55,13 +57,20 @@
       </p>
     </div>
 
-    <div id="inspector" class="panel right hidden"></div>
+    <div id="inspector" class="panel right hidden">
+      <div class="phead"><span>詳細</span><button class="pmin" data-min>−</button></div>
+      <div id="insp-body"></div>
+    </div>
     <div id="roster" class="panel roster hidden">
-      <h2>住民</h2>
+      <div class="phead"><span>住民</span><button class="pmin" data-min>−</button></div>
       <div class="row wrap" id="roster-head"></div>
+      <div class="col" id="roster-gaps"></div>
       <div id="roster-list"></div>
     </div>
-    <div id="log" class="panel bottom"></div>
+    <div id="log" class="panel bottom">
+      <div class="phead"><span>出来事</span><button class="pmin" data-min>−</button></div>
+      <div id="log-list"></div>
+    </div>
     <div id="tooltip" class="tooltip hidden"></div>
     <script type="module" src="./src/main.ts"></script>
   </body>
