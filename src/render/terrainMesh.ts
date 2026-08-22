@@ -4,11 +4,11 @@ import { World } from '../core/world'
 
 const CHUNK = 16
 
-const TOP_DRY = new THREE.Color(0xb59b6f)
-const TOP_WET = new THREE.Color(0x6f9f4a)
-const TOP_UNDER = new THREE.Color(0x5b6a4e)
-const SAND = new THREE.Color(0xd9c79a)
-const LEVEE = new THREE.Color(0x9a9a90)
+const TOP_DRY = new THREE.Color(0xb0946a) // 赤みのある乾いた土
+const TOP_WET = new THREE.Color(0x6d9350) // 苔寄りの草
+const TOP_UNDER = new THREE.Color(0x596b52) // 水底
+const SAND = new THREE.Color(0xcfc09b) // 河原の砂利
+const LEVEE = new THREE.Color(0x9d9483) // 土手
 const ROCK = new THREE.Color(0x8a8577)
 /** 側面 1 枚ぶんの頂点のうち、下側の頂点はどれか（簡易 AO 用）*/
 const SIDE_LOWER = [0, 1, 1, 0, 1, 0]

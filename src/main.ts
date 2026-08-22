@@ -235,6 +235,7 @@ function loop(now: number): void {
   if (frame % 30 === 0) terrain.refreshColors()
   entities.update(world, alpha)
   view.setSeason(world.season)
+  view.updateRain(dt)
   view.updateCamera()
   view.render()
 

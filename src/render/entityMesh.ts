@@ -62,96 +62,259 @@ const log = (len: number, r: number, color: number, x: number, base: number, z: 
 
 const merge = (...parts: THREE.BufferGeometry[]) => mergeGeometries(parts, false)
 
-/** 建物の見た目。屋根や煙突を付けて、上から見ても何の建物か分かるようにする */
+// --- 農村・宿場町の意匠 -----------------------------------------------------
+// 茅葺の寄棟、板壁、なまこ壁の土蔵、木組みの櫓。屋根の形と色で何の建物か分かるようにする。
+const THATCH = 0xc0a97a // 茅葺
+const THATCH_RIDGE = 0x8e7a55 // 棟
+const WOOD = 0xa8845c // 板壁
+const WOOD_DARK = 0x7a5f42
+const POST = 0x6d5638 // 柱・梁
+const TILE = 0x6f747b // いぶし銀の瓦
+const PLASTER = 0xe6e2d6 // 漆喰
+const MUD = 0xc0a67e // 土壁
+const SEEDLING = 0x7fb457
+const PADDY_WATER = 0x5b8b96
+const ROPE = 0xd8cba8
+
+/** 切妻屋根（二枚の勾配板）。瓦にも板葺きにも使う */
+function gable(w: number, h: number, d: number, color: number, base: number): THREE.BufferGeometry {
+  const slope = Math.hypot(w / 2, h)
+  const ang = Math.atan2(h, w / 2)
+  const mk = (sign: number) => {
+    const g = new THREE.BoxGeometry(slope, 0.09, d)
+    g.rotateZ(sign * ang)
+    return part(g, color, (sign * -w) / 4, base + h / 2, 0)
+  }
+  return merge(mk(1), mk(-1))
+}
+
+/** 寄棟の茅葺屋根。軒を深く出すと一気に日本の民家に見える */
+const thatch = (r: number, h: number, base: number, color = THATCH) =>
+  merge(roof(r, h, color, base), box(r * 1.5, 0.07, r * 1.5, THATCH_RIDGE, 0, base - 0.02, 0))
+
 const BUILDING_GEOMETRY: Partial<Record<BuildingKind, () => THREE.BufferGeometry>> = {
+  // 庄屋: 瓦葺きの母屋に、板塀と門を添える
   district: () =>
     merge(
-      box(0.84, 0.95, 0.84, 0xd9a441),
-      roof(0.74, 0.55, 0xa8543a, 0.95),
-      box(0.16, 0.5, 0.16, 0x7d5a3a, 0.3, 1.4, 0.3),
+      box(0.86, 0.62, 0.7, MUD, 0, 0, -0.06),
+      box(0.9, 0.1, 0.74, WOOD_DARK, 0, 0.62, -0.06),
+      gable(1.0, 0.4, 0.82, TILE, 0.72),
+      box(0.5, 0.42, 0.1, WOOD, 0, 0, 0.42),
+      cyl(0.05, 0.05, 0.62, 5, POST, -0.26, 0, 0.42),
+      cyl(0.05, 0.05, 0.62, 5, POST, 0.26, 0, 0.42),
+      box(0.62, 0.08, 0.16, TILE, 0, 0.62, 0.42),
     ),
-  house: () => merge(box(0.66, 0.7, 0.66, 0xd0895f), roof(0.6, 0.5, 0x8c4a3a, 0.7)),
-  storage: () => merge(box(0.86, 0.6, 0.86, 0xb2955f), box(0.94, 0.14, 0.94, 0x6f5b3f, 0, 0.6)),
+  // 民家: 茅葺の寄棟。軒が深く、壁は板張り
+  house: () =>
+    merge(
+      box(0.62, 0.42, 0.62, MUD),
+      box(0.66, 0.14, 0.66, WOOD_DARK, 0, 0.42),
+      thatch(0.62, 0.58, 0.56),
+      cyl(0.045, 0.045, 0.44, 4, POST, -0.3, 0, 0.3),
+      cyl(0.045, 0.045, 0.44, 4, POST, 0.3, 0, 0.3),
+    ),
+  // 蔵: 高床の板倉。米と資材を積む
+  storage: () =>
+    merge(
+      cyl(0.06, 0.06, 0.22, 5, POST, -0.3, 0, -0.3),
+      cyl(0.06, 0.06, 0.22, 5, POST, 0.3, 0, -0.3),
+      cyl(0.06, 0.06, 0.22, 5, POST, -0.3, 0, 0.3),
+      cyl(0.06, 0.06, 0.22, 5, POST, 0.3, 0, 0.3),
+      box(0.9, 0.08, 0.9, WOOD_DARK, 0, 0.22),
+      box(0.78, 0.48, 0.78, WOOD, 0, 0.3),
+      gable(0.98, 0.3, 0.9, WOOD_DARK, 0.78),
+    ),
+  // 土蔵: なまこ壁と瓦。腰まわりだけ黒い
+  dozo: () =>
+    merge(
+      box(0.82, 0.2, 0.82, 0x4a4a4e),
+      box(0.78, 0.58, 0.78, PLASTER, 0, 0.2),
+      box(0.86, 0.06, 0.86, TILE, 0, 0.78),
+      gable(0.98, 0.34, 0.86, TILE, 0.84),
+    ),
+  // 踏車: 足で踏んで水を汲み上げる。羽根の付いた立て車
   pump: () =>
     merge(
-      box(0.56, 0.45, 0.56, 0x3f7f9c),
-      cyl(0.09, 0.09, 1.0, 6, 0xaebfc8, 0, 0.45),
-      disc(0.26, 0.08, 0x8fb8c9, 0.24, 0.95, 0),
+      box(0.44, 0.18, 0.5, WOOD_DARK),
+      disc(0.34, 0.07, WOOD, 0.16, 0.5, 0),
+      box(0.06, 0.68, 0.06, POST, 0.16, 0.16, -0.16),
+      box(0.06, 0.68, 0.06, POST, 0.16, 0.16, 0.16),
+      box(0.12, 0.06, 0.62, WOOD, -0.22, 0.34, 0),
     ),
+  // 放水樋: 桶から樋で水を落とす
   dump: () =>
-    merge(box(0.6, 0.45, 0.6, 0x3f7f9c), log(0.6, 0.11, 0xaebfc8, 0.28, 0.45, 0)),
+    merge(
+      cyl(0.22, 0.24, 0.4, 8, WOOD, -0.16, 0.18),
+      cyl(0.06, 0.06, 0.2, 4, POST, -0.16, 0),
+      log(0.7, 0.1, WOOD_DARK, 0.16, 0.12, 0),
+      box(0.06, 0.24, 0.06, POST, 0.44, 0, 0),
+    ),
+  // 用水櫓: 汲み上げた水を溜めて撒く。屋根付きの水槽
   irrigation: () =>
     merge(
-      box(0.5, 0.2, 0.5, 0x7a8790),
-      cyl(0.14, 0.18, 1.5, 8, 0x8d9aa3, 0, 0.2),
-      cyl(0.4, 0.4, 0.42, 12, 0x7fc4d8, 0, 1.7),
-      roof(0.44, 0.28, 0x5f97ab, 2.12),
+      cyl(0.05, 0.05, 1.4, 4, POST, -0.24, 0, -0.24),
+      cyl(0.05, 0.05, 1.4, 4, POST, 0.24, 0, -0.24),
+      cyl(0.05, 0.05, 1.4, 4, POST, -0.24, 0, 0.24),
+      cyl(0.05, 0.05, 1.4, 4, POST, 0.24, 0, 0.24),
+      box(0.62, 0.06, 0.62, WOOD_DARK, 0, 0.72),
+      cyl(0.3, 0.32, 0.5, 10, WOOD, 0, 1.4),
+      thatch(0.42, 0.3, 1.9),
     ),
-  lumberjack: () =>
-    merge(
-      box(0.6, 0.5, 0.6, 0x7d9a55),
-      roof(0.56, 0.36, 0x4f6b38, 0.5),
-      log(0.5, 0.09, 0x7a5a3a, 0, 0, 0.36),
-      log(0.5, 0.09, 0x7a5a3a, 0, 0.18, 0.36),
-    ),
-  sawmill: () =>
-    merge(
-      box(0.72, 0.6, 0.72, 0x9a7a50),
-      box(0.8, 0.12, 0.8, 0x5d4a30, 0, 0.6),
-      disc(0.24, 0.06, 0xd8dde0, 0.3, 0.42, 0),
-    ),
-  mill: () =>
-    merge(
-      box(0.68, 0.55, 0.68, 0xd8b46a),
-      roof(0.62, 0.45, 0x9a5a44, 0.55),
-      box(0.15, 0.4, 0.15, 0x8a5a4a, 0.2, 0.85, 0.2),
-    ),
+  // 船着場: 桟橋と舫った小舟
   wharf: () =>
     merge(
-      // 桟橋と、舫ってある小舟
-      box(0.9, 0.12, 0.42, 0x9a7f57, 0, 0, -0.2),
-      cyl(0.05, 0.05, 0.5, 5, 0x6d5638, -0.32, -0.38, -0.2),
-      cyl(0.05, 0.05, 0.5, 5, 0x6d5638, 0.32, -0.38, -0.2),
-      box(0.66, 0.16, 0.24, 0x7a5f3f, 0, 0.02, 0.26),
-      cyl(0.04, 0.04, 0.7, 5, 0x8b6f4a, 0.22, 0.12, 0.26),
+      box(0.9, 0.1, 0.4, WOOD, 0, 0, -0.22),
+      cyl(0.05, 0.05, 0.45, 5, POST, -0.34, -0.34, -0.22),
+      cyl(0.05, 0.05, 0.45, 5, POST, 0.34, -0.34, -0.22),
+      box(0.68, 0.14, 0.22, WOOD_DARK, 0, 0, 0.26),
+      box(0.2, 0.05, 0.16, WOOD, 0.16, 0.14, 0.26),
+      cyl(0.03, 0.03, 0.55, 4, POST, -0.34, 0.1, 0.26),
     ),
+  // 火の見櫓: 木組みの櫓に半鐘。てっぺんが村で一番高い
+  firetower: () =>
+    merge(
+      cyl(0.045, 0.06, 2.2, 4, POST, -0.2, 0, -0.2),
+      cyl(0.045, 0.06, 2.2, 4, POST, 0.2, 0, -0.2),
+      cyl(0.045, 0.06, 2.2, 4, POST, -0.2, 0, 0.2),
+      cyl(0.045, 0.06, 2.2, 4, POST, 0.2, 0, 0.2),
+      box(0.5, 0.05, 0.06, POST, 0, 0.7, -0.2),
+      box(0.5, 0.05, 0.06, POST, 0, 1.4, -0.2),
+      box(0.06, 0.05, 0.46, POST, 0.2, 1.05, 0),
+      box(0.56, 0.07, 0.56, WOOD, 0, 2.2),
+      cyl(0.14, 0.16, 0.18, 8, 0x8c7a4a, 0, 2.34), // 半鐘
+      thatch(0.4, 0.26, 2.55, WOOD_DARK),
+    ),
+  // 火消し詰所: 板壁の小屋に纏を立てる
+  firehouse: () =>
+    merge(
+      box(0.66, 0.44, 0.6, WOOD),
+      gable(0.78, 0.3, 0.68, WOOD_DARK, 0.44),
+      cyl(0.035, 0.035, 0.95, 4, POST, 0.34, 0, 0.26),
+      cyl(0.12, 0.1, 0.16, 6, 0xc8503c, 0.34, 0.9, 0.26),
+      box(0.2, 0.04, 0.02, ROPE, 0.34, 0.82, 0.26),
+    ),
+  // 天水桶: 軒先の防火用水。箍を巻いた桶
+  barrel: () =>
+    merge(
+      cyl(0.2, 0.22, 0.44, 10, WOOD, 0, 0),
+      cyl(0.21, 0.21, 0.04, 10, WOOD_DARK, 0, 0.08),
+      cyl(0.2, 0.2, 0.04, 10, WOOD_DARK, 0, 0.34),
+      cyl(0.17, 0.17, 0.02, 10, 0x4f7d86, 0, 0.42),
+    ),
+  // 杣小屋: 茅葺の小屋と丸太の積み
+  lumberjack: () =>
+    merge(
+      box(0.52, 0.36, 0.52, WOOD, 0, 0, -0.1),
+      thatch(0.54, 0.4, 0.36),
+      log(0.6, 0.09, 0x7a5a3a, 0, 0, 0.38),
+      log(0.6, 0.09, 0x7a5a3a, 0, 0.18, 0.38),
+      log(0.6, 0.09, 0x8a6a44, 0, 0.36, 0.38),
+    ),
+  // 木挽小屋: 片流れの作業小屋と大鋸
+  sawmill: () =>
+    merge(
+      cyl(0.05, 0.05, 0.56, 4, POST, -0.34, 0, -0.3),
+      cyl(0.05, 0.05, 0.56, 4, POST, 0.34, 0, -0.3),
+      box(0.76, 0.3, 0.4, WOOD, 0, 0, -0.16),
+      gable(0.9, 0.26, 0.8, WOOD_DARK, 0.56),
+      box(0.6, 0.1, 0.34, 0x8a6a44, 0, 0, 0.3),
+      disc(0.2, 0.04, 0xd8dde0, 0.24, 0.36, 0.3),
+    ),
+  // 精米所: 水車小屋。大きな立て車が回る
+  mill: () =>
+    merge(
+      box(0.6, 0.5, 0.62, MUD, 0.1, 0, 0),
+      box(0.64, 0.1, 0.66, WOOD_DARK, 0.1, 0.5),
+      gable(0.78, 0.34, 0.72, TILE, 0.6),
+      disc(0.4, 0.1, WOOD, -0.34, 0.42, 0),
+      disc(0.16, 0.13, WOOD_DARK, -0.34, 0.42, 0),
+      box(0.86, 0.06, 0.06, WOOD, -0.34, 0.4, 0),
+      box(0.06, 0.06, 0.86, WOOD, -0.34, 0.4, 0),
+    ),
+  // 水田: 畦に囲まれた水面から苗が並ぶ
   paddy: () =>
     merge(
-      // 畦に囲まれた水面と、そこから出た苗の列
-      box(0.98, 0.12, 0.98, 0x6b5a42),
-      box(0.86, 0.06, 0.86, 0x4f7d86, 0, 0.12),
-      box(0.72, 0.2, 0.1, 0x7fb457, 0, 0.14, -0.22),
-      box(0.72, 0.2, 0.1, 0x7fb457, 0, 0.14, 0),
-      box(0.72, 0.2, 0.1, 0x7fb457, 0, 0.14, 0.22),
+      box(0.98, 0.14, 0.98, 0x6b5a42),
+      box(0.84, 0.08, 0.84, PADDY_WATER, 0, 0.12),
+      box(0.7, 0.22, 0.08, SEEDLING, 0, 0.16, -0.24),
+      box(0.7, 0.22, 0.08, SEEDLING, 0, 0.16, 0),
+      box(0.7, 0.22, 0.08, SEEDLING, 0, 0.16, 0.24),
     ),
+  // 畑: 土を寄せた畝
   farm: () =>
     merge(
-      box(0.94, 0.1, 0.94, 0x8a6a45),
-      box(0.82, 0.16, 0.16, 0x9ac45a, 0, 0.1, -0.26),
-      box(0.82, 0.16, 0.16, 0x9ac45a, 0, 0.1, 0),
-      box(0.82, 0.16, 0.16, 0x9ac45a, 0, 0.1, 0.26),
+      box(0.96, 0.08, 0.96, 0x8a6a45),
+      box(0.86, 0.14, 0.2, 0x9a7853, 0, 0.08, -0.28),
+      box(0.86, 0.14, 0.2, 0x9a7853, 0, 0.08, 0),
+      box(0.86, 0.14, 0.2, 0x9a7853, 0, 0.08, 0.28),
+      box(0.8, 0.12, 0.08, 0x9ac45a, 0, 0.22, -0.28),
+      box(0.8, 0.12, 0.08, 0x9ac45a, 0, 0.22, 0),
+      box(0.8, 0.12, 0.08, 0x9ac45a, 0, 0.22, 0.28),
     ),
-  dam: () => merge(box(0.98, 0.88, 0.66, 0x8a7a63), box(1.0, 0.16, 0.76, 0xb8a48c, 0, 0.88)),
-  floodgate: () => merge(box(0.98, 0.88, 0.5, 0x6b6b78), box(1.0, 0.16, 0.6, 0xa9b0bd, 0, 0.88)),
+  // 堰: 杭を打って板を渡した木の堰
+  dam: () =>
+    merge(
+      box(0.98, 0.8, 0.5, WOOD, 0, 0, 0),
+      box(0.98, 0.1, 0.62, WOOD_DARK, 0, 0.8),
+      cyl(0.05, 0.05, 0.98, 4, POST, -0.36, 0, 0.24),
+      cyl(0.05, 0.05, 0.98, 4, POST, 0.36, 0, 0.24),
+    ),
+  // 水門: 溝に落とし板をはめた木の門
+  floodgate: () =>
+    merge(
+      box(0.9, 0.86, 0.34, WOOD, 0, 0),
+      cyl(0.07, 0.07, 1.05, 4, POST, -0.45, 0, 0),
+      cyl(0.07, 0.07, 1.05, 4, POST, 0.45, 0, 0),
+      box(1.04, 0.1, 0.44, WOOD_DARK, 0, 1.0),
+    ),
 }
 
 /** 堰は堰高に合わせて縦に伸ばす。ほかは形を焼き込んであるので伸ばさない */
 const STRETCHED = new Set<BuildingKind>(['dam', 'floodgate'])
 
-function conifer(): THREE.BufferGeometry {
+// 里山の木。細く立つ杉、傘の松、群れて生える竹の三種。
+const BARK = 0x6b4c33
+const CEDAR = 0x3f6b3a
+const PINE = 0x4e7f4a
+const BAMBOO = 0x5f8f42
+
+/** 杉。細くまっすぐ立ち、上へ行くほど細る */
+function cedar(): THREE.BufferGeometry {
   return merge(
-    cyl(0.07, 0.1, 0.45, 5, 0x6b4c33),
-    part(new THREE.ConeGeometry(0.38, 0.75, 7), 0x3f7a38, 0, 0.75),
-    part(new THREE.ConeGeometry(0.27, 0.6, 7), 0x4a8b3f, 0, 1.2),
+    cyl(0.06, 0.1, 0.5, 5, BARK),
+    part(new THREE.ConeGeometry(0.32, 0.85, 7), CEDAR, 0, 0.75),
+    part(new THREE.ConeGeometry(0.24, 0.7, 7), 0x497a42, 0, 1.25),
+    part(new THREE.ConeGeometry(0.14, 0.5, 7), 0x53884a, 0, 1.65),
   )
 }
-function broadleaf(): THREE.BufferGeometry {
+
+/** 松。幹が曲がり、葉が層になって傘のように広がる */
+function pine(): THREE.BufferGeometry {
+  const trunk = cyl(0.07, 0.1, 0.7, 5, 0x74563a)
+  const layer = (r: number, y: number, c: number) =>
+    part(new THREE.CylinderGeometry(r * 0.35, r, 0.16, 8), c, 0, y, 0)
+  return merge(trunk, layer(0.44, 0.72, PINE), layer(0.34, 0.94, 0x588b52), layer(0.2, 1.12, 0x639659))
+}
+
+/** 竹。細い稈が数本まとまって立ち、上のほうだけ葉を茂らせる */
+function bamboo(): THREE.BufferGeometry {
+  const culm = (x: number, z: number, h: number, tilt: number) => {
+    const g = new THREE.CylinderGeometry(0.035, 0.05, h, 5)
+    g.rotateZ(tilt)
+    const lean = tilt * h * 0.5
+    return merge(
+      part(g, 0x9ab45c, x, h / 2, z),
+      part(new THREE.IcosahedronGeometry(0.2, 0), BAMBOO, x + lean, h * 0.86, z),
+      part(new THREE.IcosahedronGeometry(0.14, 0), 0x6d9c48, x + lean * 1.2, h * 1.02, z + 0.08),
+    )
+  }
   return merge(
-    cyl(0.08, 0.11, 0.5, 5, 0x7a5a3a),
-    part(new THREE.IcosahedronGeometry(0.42, 0), 0x4f8f43, 0, 0.9),
-    part(new THREE.IcosahedronGeometry(0.28, 0), 0x5d9c4c, 0.18, 1.15, 0.12),
+    culm(-0.16, 0.1, 1.2, 0.06),
+    culm(0.12, -0.12, 1.45, -0.05),
+    culm(0.02, 0.18, 1.0, 0.02),
   )
 }
+
 /** 炎。明かりを落とさない素の色で描くので、暗い大雨の空でもよく目立つ */
 function flame(): THREE.BufferGeometry {
   return merge(
@@ -203,8 +366,9 @@ export class EntityMeshes {
       MAX_PER_KIND,
     )
     this.trees = [
-      instanced(conifer(), solid(), MAX_TREES),
-      instanced(broadleaf(), solid(), MAX_TREES),
+      instanced(cedar(), solid(), MAX_TREES),
+      instanced(pine(), solid(), MAX_TREES),
+      instanced(bamboo(), solid(), MAX_TREES),
     ]
     this.people = instanced(person(), solid(), MAX_CITIZENS)
     this.flames = instanced(
@@ -297,10 +461,12 @@ export class EntityMeshes {
 
   private updateTrees(world: World): void {
     const { grid } = world
-    const n = [0, 0]
+    const n = [0, 0, 0]
     for (let i = 0; i < world.hasTree.length; i++) {
       if (!world.hasTree[i]) continue
-      const variant = (Math.imul(i + 7, 2654435761) >>> 0) % 100 < 62 ? 0 : 1
+      // 杉が多く、松がまばらに混じり、竹は水辺寄りにひとかたまり
+      const r = (Math.imul(i + 7, 2654435761) >>> 0) % 100
+      const variant = r < 56 ? 0 : r < 88 ? 1 : 2
       if (n[variant] >= MAX_TREES) continue
       const jitter = (((Math.imul(i + 3, 40503) >>> 0) % 1000) / 1000 - 0.5) * 2
       const g = 0.45 + world.treeGrowth[i] * 0.75 + jitter * 0.08

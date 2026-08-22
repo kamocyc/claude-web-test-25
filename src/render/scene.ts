@@ -1,12 +1,14 @@
 import * as THREE from 'three'
 import { Grid } from '../core/grid'
-import { SEASON_RAMP_TICKS } from '../data/constants'
+import { RAIN_RATE, SEASON_RAMP_TICKS } from '../data/constants'
 import { Season, SeasonKind } from '../sim/season'
 
 /** 既定の俯角。マウスの上下ドラッグで MIN_PITCH〜MAX_PITCH の間を変えられる */
 export const PITCH = 0.92
 export const MIN_PITCH = 0.3 // 17°（地平線寄り）
 export const MAX_PITCH = 1.45 // 83°（ほぼ真上）
+const RAIN_SPAN = 70 // 雨を撒く範囲
+const RAIN_HEIGHT = 26
 const MIN_DIST = 12
 const MAX_DIST = 170
 
@@ -28,6 +30,55 @@ export function cameraOffset(yaw: number, pitch: number = PITCH): THREE.Vector3 
  *   画面手前 = ( sin yaw, 0,  cos yaw)
  * となる。yaw の回転を逆向きに当てると、カメラを回したときに W が後退になる。
  */
+/**
+ * 雨脚。カメラの周りの箱のなかに細い筋を撒き、落ちきったら上へ戻す。
+ * 空の色だけだと降っている実感が薄いので、大雨の季節にだけ出す。
+ */
+class RainField {
+  readonly mesh: THREE.InstancedMesh
+  private readonly offsets: Float32Array
+  private readonly speeds: Float32Array
+
+  constructor(count: number) {
+    const geo = new THREE.BoxGeometry(0.035, 1.7, 0.035)
+    const mat = new THREE.MeshBasicMaterial({ color: 0xb2ccdd, transparent: true, opacity: 0.4 })
+    this.mesh = new THREE.InstancedMesh(geo, mat, count)
+    this.mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage)
+    this.mesh.frustumCulled = false
+    this.mesh.castShadow = false
+    this.mesh.receiveShadow = false
+    this.mesh.count = 0
+    this.offsets = new Float32Array(count * 3)
+    this.speeds = new Float32Array(count)
+    for (let i = 0; i < count; i++) {
+      // 決定的な擬似乱数で撒く（描画だけなので sim の Rng は使わない）
+      const h = (n: number) => ((Math.sin(i * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1
+      this.offsets[i * 3] = (h(1) - 0.5) * RAIN_SPAN
+      this.offsets[i * 3 + 1] = h(2) * RAIN_HEIGHT
+      this.offsets[i * 3 + 2] = (h(3) - 0.5) * RAIN_SPAN
+      this.speeds[i] = 22 + h(4) * 14
+    }
+  }
+
+  setStrength(v: number): void {
+    this.mesh.count = v > 0.02 ? Math.floor(this.offsets.length / 3 * Math.min(1, v)) : 0
+  }
+
+  update(dt: number, target: THREE.Vector3): void {
+    if (this.mesh.count === 0) return
+    const { offsets, speeds } = this
+    const m = new THREE.Matrix4()
+    for (let i = 0; i < this.mesh.count; i++) {
+      let y = offsets[i * 3 + 1] - speeds[i] * dt
+      if (y < 0) y += RAIN_HEIGHT
+      offsets[i * 3 + 1] = y
+      m.makeTranslation(target.x + offsets[i * 3], target.y + y, target.z + offsets[i * 3 + 2])
+      this.mesh.setMatrixAt(i, m)
+    }
+    this.mesh.instanceMatrix.needsUpdate = true
+  }
+}
+
 /** 季節ごとの空と光。平年は澄んだ青、大雨は鉛色で暗く、日照りは白茶けて眩しい */
 const SEASON_SKY: Record<SeasonKind, {
   sun: number; sunPower: number; ambient: number; ambientPower: number
@@ -95,6 +146,7 @@ export class SceneView {
   readonly ambient: THREE.AmbientLight
   private readonly sky: THREE.Mesh
   private readonly skyMat: THREE.ShaderMaterial
+  private readonly rain: RainField
 
   readonly target = new THREE.Vector3()
   yaw = 0.6
@@ -161,6 +213,9 @@ export class SceneView {
     this.scene.add(this.sun.target)
     this.scene.add(new THREE.HemisphereLight(0xaed0e8, 0x9c8b6b, 0.62))
 
+    this.rain = new RainField(700)
+    this.scene.add(this.rain.mesh)
+
     this.target.set(grid.w / 2, 0, grid.h / 2)
     this.resize()
     addEventListener('resize', () => this.resize())
@@ -178,7 +233,13 @@ export class SceneView {
    * 季節に応じて光と空の色を変える。季節の変わり目は 1 日かけて繋ぐので、
    * 空が徐々に鉛色になっていくのを見て雨支度ができる。
    */
+  /** 雨脚を進める。dt は実時間の秒 */
+  updateRain(dt: number): void {
+    this.rain.update(dt, this.target)
+  }
+
   setSeason(season: Season): void {
+    this.rain.setStrength(season.rainRate / RAIN_RATE)
     const t = Math.min(1, season.elapsed / SEASON_RAMP_TICKS)
     const a = SEASON_SKY[season.prevKind]
     const b = SEASON_SKY[season.kind]

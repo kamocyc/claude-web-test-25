@@ -27,6 +27,7 @@ export type BuildingKind =
   | 'farm'
   | 'mill'
   | 'storage'
+  | 'dozo'
   | 'wharf'
   | 'firetower'
   | 'firehouse'
@@ -298,7 +299,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     id: 'dozo',
     name: '土蔵',
     desc: 'なまこ壁の蔵。値は張るが火に強く、燃え移らない。大事な蓄えはここへ。',
-    kind: 'storage',
+    kind: 'dozo',
     category: 'living',
     cost: { log: 6, plank: 8 },
     buildPoints: 200,
