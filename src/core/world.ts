@@ -25,6 +25,8 @@ export interface Building {
   stack: number
   /** 建設待ちの追加段数（土手・掘削）*/
   pending: number
+  /** 橋の桁の高さ（0 = 橋ではない） */
+  deck: number
   /** 浸水で傷んでいる（建て直しではなく修理待ち） */
   damaged: boolean
   /** 火の勢い 0..1（0 = 燃えていない） */
@@ -167,6 +169,7 @@ export class World {
       gateHeight: def.kind === 'floodgate' ? 3 : 0,
       stack: 0,
       pending: 0,
+      deck: 0,
       load: 0,
       loadKind: '',
       damaged: false,

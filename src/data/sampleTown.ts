@@ -183,6 +183,48 @@ function ditchFrom(
   return { line, plots: [...inner, ...outer] }
 }
 
+/** 乾いていて空いていれば土手を積む */
+function leveeAt(g: Game, i: number): void {
+  const { grid, water } = g.world
+  if (i < 0 || i >= grid.size) return
+  if (water.depth[i] > 0.05) return // 水路の口は塞がない
+  if (g.world.buildingOn(i)) return
+  build(g, 'levee', i)
+}
+
+/**
+ * 村をぐるりと堤防で囲う。川側は行ごとに岸を追い、あとの三方はまっすぐ引く。
+ *
+ * 一段しか積まないので人は越えて歩ける（段差 1 まで登れる）。用水路と運河の口は
+ * 開けたままにするので、締め切りを忘れれば水は回り込む。完璧な締切堤ではなく、
+ * 「守りはこう作る」という形を見せるためのもの。
+ */
+function leveeRing(g: Game, row: number, inland: number, halfRows: number): void {
+  const { grid } = g.world
+  const bank = bankOn(g, row)
+  if (!bank) return
+  const ya = row - halfRows
+  const yb = row + halfRows
+  const xIn = bank.x + bank.dir * inland
+
+  // 川側は行ごとに岸をたどる（川は真っ直ぐではない）
+  for (let y = ya; y <= yb; y++) {
+    if (y < 1 || y >= grid.h - 1) continue
+    const b = bankOn(g, y)
+    if (b) leveeAt(g, grid.idx(b.x, y))
+  }
+  // 内陸側
+  for (let y = ya; y <= yb; y++) {
+    if (y < 1 || y >= grid.h - 1) continue
+    leveeAt(g, grid.idx(xIn, y))
+  }
+  // 上手と下手の袖
+  for (const y of [ya, yb]) {
+    if (y < 1 || y >= grid.h - 1) continue
+    for (let n = 0; n <= inland; n++) leveeAt(g, grid.idx(bank.x + bank.dir * n, y))
+  }
+}
+
 /** a から b へまっすぐ道を敷く */
 function roadTo(g: Game, a: number, b: number): void {
   const { grid } = g.world
@@ -243,8 +285,11 @@ export function createSampleGame(w = 80, h = 80): Game {
   for (let t = 0; t < TICKS_PER_DAY * 2; t++) g.step()
   g.path.refresh(world.water)
 
+  // 村と同じ高さから上にだけ建てる。掘割ぎわの一段低い窪地に建てると、
+  // 堰の上流が満ちきったときに水を被る（読み込んだ早々に蔵の蓄えが傷む）
+  const villageGround = grid.ground[world.startI]
   const onLand = (defId: string) => (i: number) =>
-    canPlace(world, defOf(defId), i).ok && reachable(g, i)
+    grid.ground[i] >= villageGround && canPlace(world, defOf(defId), i).ok && reachable(g, i)
   const room = (defId: string) => (i: number) => onLand(defId)(i) && spaced(g, i, 2)
 
   // 5. 船着場。蔵のそばと、運河を掘った先の田のそばに置いてつなぐ
@@ -261,7 +306,8 @@ export function createSampleGame(w = 80, h = 80): Game {
 
   // 6. 暮らしと生産（建物どうしは 1 マス空けて村らしく見えるようにする）
   for (let n = 0; n < 4; n++) build(g, 'house', spotNear(g, room('house')))
-  build(g, 'storage', spotNear(g, room('storage')))
+  // 蔵は二棟。荒天がひと巡りするあいだ村を食わせるには、これくらい貯めておく必要がある
+  for (let n = 0; n < 2; n++) build(g, 'storage', spotNear(g, room('storage')))
   build(g, 'dozo', spotNear(g, room('dozo')))
   build(g, 'lumberjack', spotNear(g, room('lumberjack')))
   build(g, 'sawmill', spotNear(g, room('sawmill')))
@@ -272,21 +318,33 @@ export function createSampleGame(w = 80, h = 80): Game {
   build(g, 'firehouse', spotNear(g, room('firehouse')))
   for (let n = 0; n < 2; n++) build(g, 'barrel', spotNear(g, room('barrel')))
 
-  // 8. 乾いた高台に用水櫓を建て、その足元に畑を置く（灌漑で耕地が広がる様子）
-  const tower = spotNear(g, (i) => world.irrigation.moisture[i] === 0 && onLand('irrigation')(i))
+  // 8. 畑は二手に分けて置く。
+  //    村のそばの畑は蔵に近くて手っ取り早いが、大雨のたびに麦ごと流される。
+  //    段丘の上（村より二段高い）には水が来ないので、洪水のあいだ村を食わせるのはこちら。
+  //    乾いた段丘は用水櫓で潤す。田は川端、畑は段丘、という置き分けが季節への備えになる。
+  const high = villageGround + 2 // 一段だけだと大雨で水が乗る（実測 0.13 m）
+  const onTerrace = (defId: string) => (i: number) => grid.ground[i] >= high && onLand(defId)(i)
+  const tower = spotNear(g, (i) => world.irrigation.moisture[i] === 0 && onTerrace('irrigation')(i))
   if (tower >= 0) {
     build(g, 'irrigation', tower)
     for (let n = 0; n < 2; n++) {
-      build(g, 'farm', spotNear(g, (i) => distance(world, i, tower) <= 4 && onLand('farm')(i)))
+      build(g, 'farm', spotNear(g, (i) => distance(world, i, tower) <= 5 && onTerrace('farm')(i)))
     }
   }
-  build(
-    g,
-    'farm',
-    spotNear(g, (i) => world.irrigation.soilWet[i] >= SOIL_GROW_THRESHOLD && onLand('farm')(i)),
-  )
+  for (let n = 0; n < 2; n++) {
+    build(
+      g,
+      'farm',
+      spotNear(g, (i) => world.irrigation.soilWet[i] >= SOIL_GROW_THRESHOLD && room('farm')(i)),
+    )
+  }
+
+  // 9. 村をぐるりと堤防で囲う（大雨への備えの手本）
+  leveeRing(g, startRow, 10, 7)
 
   // 10. 人を増やし、村らしい在庫にしてから数日回して落ち着かせる
+  // 荒天がひと巡りするあいだ、村は蓄えだけで食いつなぐことになる。
+  // 16 人は「この田畑と蔵で養える人数」として決めた
   while (world.citizens.length < 16) world.spawnCitizen(world.startI)
   world.stock.log = 45
   world.stock.plank = 30
@@ -308,12 +366,19 @@ export function createSampleGame(w = 80, h = 80): Game {
     if (build(g, 'paddy', i)) paddies++
   }
 
-  // 12. 庄屋から離れた建物へ道を通す（陸路の荷捌きが伸びる）
+  // 12. 運河に橋を架ける。向こう岸の田へ、水に入らずに渡れるようにする
+  // 桁は隣の歩ける面から受け継ぐので、両脇が浅く残っている所にしか架からない。
+  // 運河の奥（掘った終端）から順に、架けられる所を探す
+  for (let n = canal.line.length - 1; n >= 0; n--) {
+    if (build(g, 'bridge', canal.line[n])) break
+  }
+
+  // 13. 庄屋から離れた建物へ道を通す（陸路の荷捌きが伸びる）
   for (const b of world.buildings) {
     if (distance(world, b.i, world.startI) > 6) roadTo(g, world.startI, b.i)
   }
 
-  // 13. 働き手を配属し直す。あとから建てた田に人が回らないため
+  // 14. 働き手を配属し直す。あとから建てた田に人が回らないため
   //     （assignJobs は職のない住民しか動かさない）
   for (const b of world.buildings) b.workers = []
   for (const c of world.citizens) {
@@ -322,8 +387,21 @@ export function createSampleGame(w = 80, h = 80): Game {
   }
   for (let t = 0; t < TICKS_PER_DAY * 2; t++) g.step()
 
+  // 15. 季節の筋書き。読み込んで数日は平年、そのあと大雨が来て、続けて日照りになる。
+  //     増水と浸水、そのあとの渇水という山と谷を続けて見られるようにしてある。
+  const season = world.season
+  season.kind = 'normal'
+  season.prevKind = 'normal'
+  season.elapsed = 0
+  season.lengthDays = 3
+  season.nextKind = 'rain'
+  season.scripted = ['drought']
+
+  // 蔵を満たすのは最後。先に満たすと、落ち着かせて回しているあいだに人が増えてしまう
   world.stock.log = 45
   world.stock.plank = 30
+  world.stock.meal = 300
+  world.stock.water = 300
   world.log = []
   world.pushLog('サンプルの村を読み込んだ')
   return g

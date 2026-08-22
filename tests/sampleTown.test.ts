@@ -3,6 +3,8 @@ import { createSampleGame } from '../src/data/sampleTown'
 import { defOf } from '../src/data/buildings'
 import {
   BOAT_MIN_DEPTH,
+  FLOOD_CROP_DEPTH,
+  SOIL_GROW_THRESHOLD,
   PADDY_MAX_DEPTH,
   PADDY_MIN_DEPTH,
   TICKS_PER_DAY,
@@ -32,6 +34,8 @@ describe('サンプルの村', () => {
       expect(countOf(g, id), `${defOf(id).name} が無い`).toBeGreaterThan(0)
     }
     expect(countOf(g, 'wharf')).toBeGreaterThanOrEqual(2) // 蔵のそばと運河の先
+    expect(countOf(g, 'levee')).toBeGreaterThan(20) // 村を囲う堤防
+    expect(countOf(g, 'bridge')).toBeGreaterThan(0) // 運河を渡る橋
     expect(g.world.citizens.length).toBeGreaterThanOrEqual(16)
 
     let roads = 0
@@ -55,6 +59,50 @@ describe('サンプルの村', () => {
     expect(w.stock.water).toBeGreaterThan(0)
     expect(w.stock.wheat + w.stock.meal).toBeGreaterThan(0)
   }, 60000)
+
+  it('畑は段丘にも置いてあり、大雨でも段丘のぶんは水を被らない', () => {
+    const g = createSampleGame(SIZE, SIZE)
+    const w = g.world
+    const high = w.grid.ground[w.startI]
+    const farms = w.buildings.filter((b) => b.defId === 'farm')
+    const paddies = w.buildings.filter((b) => b.defId === 'paddy')
+    expect(farms.length).toBeGreaterThanOrEqual(4)
+    // 稲は湛水がいるので川端の低いところ
+    for (const b of paddies) expect(w.grid.ground[b.i]).toBeLessThanOrEqual(high)
+
+    const s = w.season
+    s.kind = 'rain'
+    s.prevKind = 'rain'
+    s.elapsed = 0
+    s.lengthDays = 99
+    for (let t = 0; t < TICKS_PER_DAY * 10; t++) g.step()
+    // 村のそばの畑は水を被るが、段丘の畑は残る
+    const dry = farms.filter((b) => w.water.depth[b.i] < FLOOD_CROP_DEPTH)
+    expect(dry.length).toBeGreaterThanOrEqual(2)
+    for (const b of dry) expect(w.grid.ground[b.i]).toBeGreaterThan(high)
+    expect(farms.filter((b) => w.water.depth[b.i] >= FLOOD_CROP_DEPTH).length).toBeGreaterThan(0)
+
+    // 段丘の畑は麦を抱えたまま残る。ただし村から通う道が水に浸かるので、
+    // 大雨のあいだ実際に穫れるかは通えるかどうか次第（そこはプレイヤーの仕事）
+    for (const b of dry) expect(w.irrigation.soilWet[b.i]).toBeGreaterThan(SOIL_GROW_THRESHOLD)
+  }, 120000)
+
+  it('読み込んだ村には大雨が来て、その次に日照りが来る', () => {
+    const g = createSampleGame(SIZE, SIZE)
+    const s = g.world.season
+    expect(s.kind).toBe('normal')
+    expect(s.nextKind).toBe('rain') // まず大雨
+    expect(s.daysLeft).toBeLessThanOrEqual(3) // 見て回る猶予だけ置いてある
+
+    const seen: string[] = []
+    for (let t = 0; t < TICKS_PER_DAY * 60; t++) {
+      g.step()
+      const k = g.world.season.kind
+      if (seen[seen.length - 1] !== k) seen.push(k)
+      if (seen.length >= 3) break
+    }
+    expect(seen.slice(0, 3)).toEqual(['normal', 'rain', 'drought'])
+  }, 120000)
 
   it('用水路の水が田に来ていて、稲が育っている', () => {
     const g = createSampleGame(SIZE, SIZE)

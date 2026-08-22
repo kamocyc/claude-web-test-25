@@ -259,6 +259,19 @@ const BUILDING_GEOMETRY: Partial<Record<BuildingKind, () => THREE.BufferGeometry
       cyl(0.05, 0.05, 0.98, 4, POST, -0.36, 0, 0.24),
       cyl(0.05, 0.05, 0.98, 4, POST, 0.36, 0, 0.24),
     ),
+  // 橋: 桁の上に板を並べ、両脇に低い高欄を立てた木橋
+  bridge: () =>
+    merge(
+      box(1.0, 0.08, 0.16, WOOD_DARK, 0, 0, -0.26),
+      box(1.0, 0.08, 0.16, WOOD_DARK, 0, 0, 0.26),
+      box(1.0, 0.07, 0.78, WOOD, 0, 0.08, 0),
+      cyl(0.035, 0.035, 0.3, 4, POST, -0.4, 0.15, -0.34),
+      cyl(0.035, 0.035, 0.3, 4, POST, 0.4, 0.15, -0.34),
+      cyl(0.035, 0.035, 0.3, 4, POST, -0.4, 0.15, 0.34),
+      cyl(0.035, 0.035, 0.3, 4, POST, 0.4, 0.15, 0.34),
+      box(1.0, 0.05, 0.05, WOOD_DARK, 0, 0.42, -0.34),
+      box(1.0, 0.05, 0.05, WOOD_DARK, 0, 0.42, 0.34),
+    ),
   // 水門: 溝に落とし板をはめた木の門
   floodgate: () =>
     merge(
@@ -405,7 +418,10 @@ export class EntityMeshes {
     }
     for (const b of world.buildings) {
       // 屋根のあたりから火の手が上がるようにする
-      if (b.fire > 0) put(b.i, grid.ground[b.i] + defOf(b.defId).height * 0.85, b.fire)
+      if (b.fire > 0) {
+        const top = b.deck > 0 ? b.deck : grid.ground[b.i]
+        put(b.i, top + defOf(b.defId).height * 0.85, b.fire)
+      }
     }
     for (let i = 0; i < world.treeFire.length; i++) {
       if (world.treeFire[i] > 0) put(i, grid.ground[i] + 0.7, world.treeFire[i])
@@ -422,7 +438,8 @@ export class EntityMeshes {
       const def = defOf(b.defId)
       const x = grid.xOf(b.i) + 0.5
       const z = grid.yOf(b.i) + 0.5
-      const base = grid.ground[b.i]
+      // 橋は桁の高さに架かる。ほかは地面の上
+      const base = b.deck > 0 ? b.deck : grid.ground[b.i]
       if (!b.built) {
         // 傷んだ建物も「建設中」として足場を描く（修理を待っている状態）
         const t = def.buildPoints > 0 ? b.buildProgress / def.buildPoints : 1
@@ -497,7 +514,7 @@ export class EntityMeshes {
       if (n >= MAX_CITIZENS) break
       const x = c.px + (c.x - c.px) * alpha
       const z = c.py + (c.y - c.py) * alpha
-      const base = grid.ground[c.i] + grid.barrier[c.i] // 堰の上にも立つ
+      const base = grid.walkTop(c.i) // 堰の上にも橋の上にも立つ
       dummy.position.set(x, base, z)
       dummy.rotation.set(0, Math.atan2(c.x - c.px, c.y - c.py), 0)
       dummy.scale.set(1, 1, 1)

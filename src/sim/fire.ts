@@ -22,7 +22,9 @@ import {
 import { demolish } from './structures'
 
 /** 地形そのもの、あるいは水を張ってあるので燃えないもの */
-const NON_FLAMMABLE = new Set<BuildingKind>(['levee', 'dam', 'floodgate', 'dig', 'road', 'paddy', 'farm'])
+const NON_FLAMMABLE = new Set<BuildingKind>([
+  'levee', 'dam', 'floodgate', 'dig', 'road', 'bridge', 'paddy', 'farm',
+])
 
 export function canBurn(b: Building): boolean {
   const def = defOf(b.defId)

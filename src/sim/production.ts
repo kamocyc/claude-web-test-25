@@ -159,6 +159,21 @@ function nearestTree(world: World, b: Building): number {
   return best
 }
 
+/**
+ * いま水のせいで働けない職場か。
+ *
+ * 沈んだ建物、水の引いた田、水を被った畑。ここに人を配属したままにすると、
+ * 大雨のあいだ村じゅうの手が使いものにならない職場に張り付いて飢える。
+ */
+export function idleByWater(world: World, b: Building): boolean {
+  const def = defOf(b.defId)
+  if (isSwamped(world, b)) return true
+  const depth = world.water.depth[b.i]
+  if (def.kind === 'paddy') return depth < PADDY_MIN_DEPTH || depth > PADDY_MAX_DEPTH
+  if (def.kind === 'farm') return depth >= FLOOD_CROP_DEPTH
+  return false
+}
+
 /** 樹木の成長と枯死（重いので数 tick に 1 回だけ回す） */
 export function updateVegetation(world: World): void {
   if (world.tick % VEG_INTERVAL !== 0) return

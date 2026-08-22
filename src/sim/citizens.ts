@@ -11,6 +11,7 @@ import {
 import { PathFinder } from './pathfinding'
 import { completeBuild } from './structures'
 import { fightFire } from './fire'
+import { idleByWater } from './production'
 
 const ARRIVE_EPS = 0.06
 
@@ -23,6 +24,18 @@ export function assignJobs(world: World): void {
     if (!b.built) continue
     const def = defOf(b.defId)
     b.workers = b.workers.filter((id) => world.citizens.some((c) => c.id === id))
+    // 水に沈んだ職場や、水の合わない田には人を置かない。手が空くぶん畑や山へ回る
+    if (def.workers > 0 && idleByWater(world, b)) {
+      for (const id of b.workers) {
+        const c = world.citizens.find((x) => x.id === id)
+        if (c) {
+          c.jobId = -1
+          c.task = 'idle'
+        }
+      }
+      b.workers = []
+      continue
+    }
     for (let n = b.workers.length; n < def.workers; n++) openings.push(b)
   }
   if (openings.length === 0) return
@@ -84,7 +97,7 @@ function updateCitizen(world: World, path: PathFinder, c: Citizen, quota: BuildQ
   if (c.task === 'idle') return true
 
   if (c.path && c.path.length > 0) {
-    walk(world, c)
+    walk(world, path, c)
     return true
   }
   act(world, path, c)
@@ -175,9 +188,11 @@ function travelTo(
   return true
 }
 
-function walk(world: World, c: Citizen): void {
+function walk(world: World, path: PathFinder, c: Citizen): void {
   const { grid } = world
-  let budget = CITIZEN_SPEED * TICK_DT
+  // 水の中は足が進まない。1 tick は 0.1 秒で 1 マスより短いので、
+  // いま立っている列の深さで見れば十分足りる
+  let budget = (CITIZEN_SPEED * TICK_DT) / path.costAt(c.i)
   const p = c.path as number[]
   while (budget > 0 && c.pathPos < p.length) {
     const target = p[c.pathPos]

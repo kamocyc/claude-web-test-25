@@ -8,7 +8,27 @@ import {
   MAX_Z,
   PADDY_MAX_DEPTH,
   PUMP_MIN_DEPTH,
+  WALKABLE_MAX_DEPTH,
 } from '../data/constants'
+
+/**
+ * 架けようとしている橋の桁の高さ。継ぎ足せる相手がいなければ -1。
+ *
+ * 桁は「隣の歩ける面」から受け継ぐ。岸から架け始めれば岸の高さのまま川を渡れるので、
+ * 対岸で 1 段登るだけで済む。堰と同じく、岸から一マスずつしか伸ばせない
+ * （まだ完成していない橋は grid.deck に入っていないので支えにならない）。
+ */
+export function deckHeightFor(world: World, i: number): number {
+  const { grid, water } = world
+  let deck = -1
+  grid.forEachNeighbor(i, (n) => {
+    // 支えになるのは、人が立てる面がある隣。深い水の底は支えにならない
+    if (grid.deck[n] <= 0 && water.depth[n] > WALKABLE_MAX_DEPTH) return
+    deck = Math.max(deck, grid.walkTop(n))
+  })
+  // 桁が自分の河床より下だと地面に埋まってしまう
+  return deck >= grid.bed(i) ? deck : -1
+}
 
 export interface PlaceCheck {
   ok: boolean
@@ -57,6 +77,9 @@ export function canPlace(world: World, def: BuildingDef, i: number): PlaceCheck 
     }
     case 'anyTerrain':
       break
+  }
+  if (def.kind === 'bridge' && deckHeightFor(world, i) < 0) {
+    return { ok: false, reason: '岸か橋の隣から継ぎ足すこと' }
   }
   if (def.kind === 'dig' && grid.natural[i] <= 0) return { ok: false, reason: 'これ以上掘れない' }
   if (def.kind === 'road' && grid.road[i]) return { ok: false, reason: 'すでに道がある' }
@@ -112,6 +135,13 @@ export function completeBuild(world: World, b: Building): void {
       grid.barrier[b.i] = b.gateHeight
       grid.flowResist[b.i] = DAM_RESIST
       displaceWater(world, b.i)
+      break
+    }
+    case 'bridge': {
+      // 桁の高さは架けた時点の岸で決まる。あとで水位が上がって桁を越えれば水没する
+      const deck = deckHeightFor(world, b.i)
+      b.deck = deck >= 0 ? deck : grid.bed(b.i)
+      grid.deck[b.i] = b.deck
       break
     }
     case 'road': {
@@ -181,6 +211,9 @@ export function demolish(world: World, b: Building): void {
     case 'levee':
       grid.levee[b.i] = 0
       grid.refreshGround(b.i)
+      break
+    case 'bridge':
+      grid.deck[b.i] = 0
       break
     default:
       break

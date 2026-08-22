@@ -91,11 +91,14 @@ function onNewDay(world: World): void {
     world.pushLog(SEASON_OMEN[season.forecast])
   }
 
+  // 人が増えるのは平年だけ。大雨や日照りのさなかに口が増えると、
+  // 蓄えを食い潰して村ごと倒れる（実際、洪水の最中に人口が増えて全滅していた）
   const cap = Math.max(1, world.capacity)
   const food = world.stock.meal + world.stock.wheat
   const room = world.housing - world.citizens.length
   if (
     room > 0 &&
+    world.season.kind === 'normal' &&
     world.stock.water >= cap * GROWTH_STOCK_RATIO &&
     food >= cap * GROWTH_STOCK_RATIO
   ) {

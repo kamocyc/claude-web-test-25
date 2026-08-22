@@ -33,6 +33,7 @@ export type BuildingKind =
   | 'firehouse'
   | 'barrel'
   | 'road'
+  | 'bridge'
   | 'levee'
   | 'dam'
   | 'floodgate'
@@ -364,6 +365,20 @@ export const BUILDINGS: readonly BuildingDef[] = [
     color: 0xa89878,
     height: 0,
     placement: 'land',
+  },
+  {
+    id: 'bridge',
+    name: '橋',
+    desc: '水の上に桁を渡す。上は乾いた地面と同じ速さで歩ける。水は下を流れるので、川の流れも水位も変えない。岸（または架けた橋）の隣から一マスずつ継ぎ足して伸ばす。',
+    kind: 'bridge',
+    category: 'terrain',
+    cost: { log: 2, plank: 1 },
+    buildPoints: 60,
+    workers: 0,
+    floodproof: true,
+    color: 0x9a7b52,
+    height: 0.4,
+    placement: 'anyTerrain',
   },
   {
     id: 'dig',

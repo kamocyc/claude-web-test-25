@@ -7,8 +7,9 @@ import { MAX_Z } from '../data/constants'
  *   水は列ごとに 1 本の連続した水柱としてのみ存在する（Timberborn と同じ扱い）。
  *
  * ground は「地面から連続するソリッド」の高さ。natural（地形。掘削で減る）と
- * levee（その上に積まれた土手）の和。ceiling は地面から浮いたソリッド（橋等）の
- * 下端で、水位の上限になるだけで底面は変えない。
+ * levee（その上に積まれた土手）の和。ceiling は地面から浮いたソリッドの下端で、
+ * 水位の上限になるだけで底面は変えない。deck は橋の桁の高さで、歩ける面を
+ * water の上に足すだけ。どちらも水の底面（bed）には触らない。
  */
 export class Grid {
   readonly w: number
@@ -32,6 +33,8 @@ export class Grid {
   readonly isDrain: Uint8Array
   /** 道が敷かれているか（荷運びが速くなる） */
   readonly road: Uint8Array
+  /** 橋の桁の高さ（0 = 橋なし）。水の底面は変えず、その上を歩けるようにするだけ */
+  readonly deck: Uint8Array
 
   constructor(w: number, h: number) {
     this.w = w
@@ -45,6 +48,7 @@ export class Grid {
     this.flowResist = new Float64Array(this.size)
     this.isDrain = new Uint8Array(this.size)
     this.road = new Uint8Array(this.size)
+    this.deck = new Uint8Array(this.size)
   }
 
   idx(x: number, y: number): number {
@@ -63,6 +67,11 @@ export class Grid {
   /** 水の底面の高さ */
   bed(i: number): number {
     return this.ground[i] + this.barrier[i]
+  }
+
+  /** 人が立つ高さ。堰の上には乗れるし、橋があればその桁の上を歩く */
+  walkTop(i: number): number {
+    return this.deck[i] > 0 ? this.deck[i] : this.ground[i] + this.barrier[i]
   }
 
   refreshGround(i: number): void {

@@ -8,12 +8,14 @@ import { canPlace, completeBuild, place } from '../src/sim/structures'
 import { floodDamage, isSwamped } from '../src/sim/flood'
 import { Logistics } from '../src/sim/logistics'
 import { PathFinder } from '../src/sim/pathfinding'
-import { moveLoads, updateProduction, updateVegetation } from '../src/sim/production'
+import { idleByWater, moveLoads, updateProduction, updateVegetation } from '../src/sim/production'
+import { assignJobs } from '../src/sim/citizens'
 import {
   FLOOD_CROP_DEPTH,
   FLOOD_DAMAGE_DEPTH,
   FLOOD_STOP_DEPTH,
   FLOOD_TREE_DEPTH,
+  PADDY_MAX_DEPTH,
   PLANT_DIE_TICKS,
   SOIL_GROW_THRESHOLD,
   TICKS_PER_DAY,
@@ -166,6 +168,56 @@ describe('浸水', () => {
       updateVegetation(w2)
     }
     expect(w2.hasTree[j]).toBe(1)
+  })
+
+  it('膝までの浸水では木は枯れない', () => {
+    const alive = (depth: number): boolean => {
+      const w = town()
+      const i = w.grid.idx(10, 5)
+      w.hasTree[i] = 1
+      w.treeGrowth[i] = 1
+      w.water.depth[i] = depth
+      for (let t = 0; t < PLANT_DIE_TICKS * 3; t++) {
+        w.tick++
+        updateVegetation(w)
+      }
+      return w.hasTree[i] === 1
+    }
+    // 人が歩ける深さ（〜1.0）では根まで沈まない。大雨のたびに山が丸裸にならない
+    expect(alive(0.5)).toBe(true)
+    expect(alive(1.0)).toBe(true)
+    expect(alive(FLOOD_TREE_DEPTH - 0.1)).toBe(true)
+    expect(alive(FLOOD_TREE_DEPTH + 0.1)).toBe(false)
+  })
+
+  it('水に沈んだ田や畑からは働き手が離れる', () => {
+    const w = town()
+    const paddy = put(w, 'paddy', 10, 5)
+    const field = put(w, 'farm', 12, 5)
+    w.water.depth[paddy.i] = 0.4
+    for (let i = 0; i < 3; i++) w.spawnCitizen(w.grid.idx(2, 5))
+    const path = new PathFinder(w.grid)
+    path.refresh(w.water)
+    for (let t = 0; t < 40; t++) {
+      w.tick++
+      assignJobs(w)
+    }
+    expect(paddy.workers.length).toBe(1)
+    expect(field.workers.length).toBe(1)
+    expect(idleByWater(w, paddy)).toBe(false)
+
+    // 大水が出れば田は深すぎ、畑は水を被る
+    w.water.depth[paddy.i] = PADDY_MAX_DEPTH + 0.5
+    w.water.depth[field.i] = FLOOD_CROP_DEPTH + 0.1
+    expect(idleByWater(w, paddy)).toBe(true)
+    expect(idleByWater(w, field)).toBe(true)
+    for (let t = 0; t < 40; t++) {
+      w.tick++
+      assignJobs(w)
+    }
+    expect(paddy.workers).toEqual([])
+    expect(field.workers).toEqual([])
+    expect(w.citizens.filter((c) => c.jobId >= 0)).toEqual([])
   })
 
   it('水に浸かった道は流される', () => {

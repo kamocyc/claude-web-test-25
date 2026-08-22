@@ -2,13 +2,14 @@ import { World } from '../core/world'
 import type { Building, Citizen } from '../core/world'
 import { emptyStock, Stock } from '../data/buildings'
 import { SEASON_KINDS, SeasonKind } from '../sim/season'
+import { SEVERE_SCALE_DEFAULT } from '../data/constants'
 
 function seasonKind(v: string): SeasonKind {
   return (SEASON_KINDS as readonly string[]).includes(v) ? (v as SeasonKind) : 'normal'
 }
 
-const VERSION = 2
-const KEY = 'satoyama.save.v2'
+const VERSION = 3
+const KEY = 'satoyama.save.v3'
 
 interface SaveData {
   version: number
@@ -26,6 +27,8 @@ interface SaveData {
     day: number
     dayTick: number
     cycle: number
+    severeScale: number
+    scripted: string[]
   }
   natural: number[]
   levee: number[]
@@ -34,6 +37,7 @@ interface SaveData {
   flowResist: number[]
   isDrain: number[]
   road: number[]
+  deck: number[]
   depth: number[]
   fluxX: number[]
   fluxY: number[]
@@ -72,6 +76,8 @@ export function serialize(world: World): string {
       day: season.day,
       dayTick: season.dayTick,
       cycle: season.cycle,
+      severeScale: season.severeScale,
+      scripted: [...season.scripted],
     },
     natural: Array.from(grid.natural),
     levee: Array.from(grid.levee),
@@ -80,6 +86,7 @@ export function serialize(world: World): string {
     flowResist: Array.from(grid.flowResist),
     isDrain: Array.from(grid.isDrain),
     road: Array.from(grid.road),
+    deck: Array.from(grid.deck),
     depth: Array.from(water.depth),
     fluxX: Array.from(water.fluxX),
     fluxY: Array.from(water.fluxY),
@@ -113,6 +120,7 @@ export function deserializeInto(world: World, json: string): boolean {
   grid.flowResist.set(data.flowResist)
   grid.isDrain.set(data.isDrain)
   grid.road.set(data.road ?? [])
+  grid.deck.set(data.deck ?? [])
   grid.refreshAllGround()
 
   world.water.depth.set(data.depth)
@@ -135,6 +143,8 @@ export function deserializeInto(world: World, json: string): boolean {
   world.season.day = data.season.day
   world.season.dayTick = data.season.dayTick
   world.season.cycle = data.season.cycle
+  world.season.severeScale = data.season.severeScale ?? SEVERE_SCALE_DEFAULT
+  world.season.scripted = (data.season.scripted ?? []).map(seasonKind)
   world.sources = data.sources
   world.startI = data.startI
   world.buildings = data.buildings

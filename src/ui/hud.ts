@@ -1,6 +1,6 @@
 import { World } from '../core/world'
 import { RESOURCES, RESOURCE_LABEL } from '../data/buildings'
-import { SEASON_LABEL } from '../sim/season'
+import { SEASON_LABEL, severeDayRange } from '../sim/season'
 
 export type StorageAction = 'save' | 'load' | 'sample'
 
@@ -13,8 +13,14 @@ export class Hud {
   private lastLog = ''
   private lastResources = ''
   private lastSeason = ''
+  private lastScale = 0
+  private readonly harshBox = document.getElementById('harsh') as HTMLElement
 
-  constructor(onSpeed: (speed: number) => void, onStorage: (action: StorageAction) => void) {
+  constructor(
+    onSpeed: (speed: number) => void,
+    onStorage: (action: StorageAction) => void,
+    onSevere: (scale: number) => void,
+  ) {
     const storage = document.getElementById('storage') as HTMLElement
     storage.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('button')
@@ -28,6 +34,12 @@ export class Hud {
       for (const b of speedBox.querySelectorAll('button')) b.classList.remove('active')
       btn.classList.add('active')
       onSpeed(Number(btn.dataset.speed))
+    })
+
+    this.harshBox.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest('button')
+      if (!btn?.dataset.harsh) return
+      onSevere(Number(btn.dataset.harsh))
     })
   }
 
@@ -54,6 +66,16 @@ export class Hud {
       this.season.className = `chip ${s.kind}`
       this.season.textContent = season.split('|')[0]
       this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
+    }
+
+    // 荒天の長さは読み込みでも変わるので、押した瞬間ではなく世界の値を見て塗る
+    if (s.severeScale !== this.lastScale) {
+      this.lastScale = s.severeScale
+      const [lo, hi] = severeDayRange(s.severeScale)
+      for (const b of this.harshBox.querySelectorAll('button')) {
+        b.classList.toggle('active', Number(b.dataset.harsh) === s.severeScale)
+      }
+      this.harshBox.title = `大雨と日照りが ${lo}〜${hi} 日続く。次の季節から効く（荒天のさなかなら残りも伸び縮みする）`
     }
 
     // 件数だけで見ると、ロードで中身が入れ替わったときに更新されない

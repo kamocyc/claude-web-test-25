@@ -57,6 +57,7 @@ const hud = new Hud(
       world.pushLog('読み込めるセーブデータがない')
     }
   },
+  (scale) => world.season.setSevereScale(scale),
 )
 let selectedDef: BuildingDef | null = null
 const menu = new BuildMenu((def) => {

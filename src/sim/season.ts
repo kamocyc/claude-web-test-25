@@ -9,6 +9,7 @@ import {
   SEASON_OMEN_DAYS,
   SEASON_RAMP_TICKS,
   SEASON_WEIGHT,
+  SEVERE_SCALE_DEFAULT,
   SOURCE_STRENGTH,
   TICKS_PER_DAY,
 } from '../data/constants'
@@ -34,7 +35,7 @@ export const SEASON_OMEN: Record<SeasonKind, string> = {
  * 季節。平年・大雨・日照りをランダムに引く。
  *
  * 抽選には World の Rng を使うので、セーブを跨いでも同じ並びになる。
- * 直前と同じ季節は引かない（16 日続く日照りのような理不尽を避ける）。
+ * 直前と同じ季節は引かない（延々と続く日照りのような理不尽を避ける）。
  * 次に来る季節は季節の開始時点で決まっているが、プレイヤーには残り
  * SEASON_OMEN_DAYS 日を切ってからしか見せない。備える猶予は必ず与えつつ、
  * 何が来るかは最後まで分からない、という緊張を残すため。
@@ -54,6 +55,17 @@ export class Season {
   dayTick = 0
   /** 通過した日照りの数。日照りはこれに比例して長くなる */
   cycle = 0
+  /**
+   * 大雨・日照りの長さの倍率（平年は変わらない）。ゲーム中に変えられる。
+   * 荒天が短いと備える意味が薄れ、長いと村ごと持っていかれる。好みが分かれるので
+   * プレイヤーに委ねる。既定の 2 で 12〜20 日。
+   */
+  severeScale = SEVERE_SCALE_DEFAULT
+  /**
+   * 次に来る季節をあらかじめ決めておく行列。サンプルの村のように
+   * 「まず大雨、その次は日照り」と筋書きを与えたいときだけ使う。空なら抽選。
+   */
+  scripted: SeasonKind[] = []
 
   get daysLeft(): number {
     if (this.lengthDays <= 0) return 0
@@ -91,11 +103,29 @@ export class Season {
     return from + (to - from) * t
   }
 
+  /**
+   * 大雨・日照りの長さの倍率を変える。いま荒天のさなかなら、残りもその場で伸び縮みする
+   * （次の季節を待たずに手応えが変わるように）。
+   */
+  setSevereScale(scale: number): void {
+    const next = Math.max(0.25, Math.min(4, scale))
+    if (next === this.severeScale) return
+    if (this.kind !== 'normal' && this.lengthDays > 0) {
+      this.lengthDays = Math.max(1, Math.round((this.lengthDays / this.severeScale) * next))
+    }
+    this.severeScale = next
+  }
+
+  /** 次の季節。筋書きがあればそれを、無ければ抽選する */
+  private pickNext(rng: Rng): SeasonKind {
+    return this.scripted.shift() ?? drawKind(this.kind, rng)
+  }
+
   /** 1 tick 進め、日が変わったら true */
   advance(rng: Rng): boolean {
     // 最初の季節ぶんもここで引く（World の構築時は rng をまだ触れないため）
-    if (this.lengthDays <= 0) this.lengthDays = drawLength(this.kind, this.cycle, rng)
-    if (this.nextKind === null) this.nextKind = drawKind(this.kind, rng)
+    if (this.lengthDays <= 0) this.lengthDays = drawLength(this.kind, this.cycle, this.severeScale, rng)
+    if (this.nextKind === null) this.nextKind = this.pickNext(rng)
 
     this.elapsed++
     this.dayTick++
@@ -110,8 +140,8 @@ export class Season {
       this.prevKind = this.kind
       this.kind = this.nextKind
       this.elapsed = 0
-      this.lengthDays = drawLength(this.kind, this.cycle, rng)
-      this.nextKind = drawKind(this.kind, rng)
+      this.lengthDays = drawLength(this.kind, this.cycle, this.severeScale, rng)
+      this.nextKind = this.pickNext(rng)
     }
     return newDay
   }
@@ -130,9 +160,17 @@ function drawKind(current: SeasonKind, rng: Rng): SeasonKind {
   return pool[pool.length - 1]
 }
 
-function drawLength(kind: SeasonKind, cycle: number, rng: Rng): number {
+/** 季節の長さ [日]。荒天だけ scale 倍する（平年は間延びさせない） */
+export function drawLength(kind: SeasonKind, cycle: number, scale: number, rng: Rng): number {
   const [lo, hi] = SEASON_DAYS[kind]
   const base = kind === 'drought' ? lo + cycle * DROUGHT_DAYS_STEP : lo
   const days = base + rng.int(hi - lo + 1)
-  return kind === 'drought' ? Math.min(DROUGHT_DAYS_MAX, days) : days
+  const capped = kind === 'drought' ? Math.min(DROUGHT_DAYS_MAX, days) : days
+  return kind === 'normal' ? capped : Math.max(1, Math.round(capped * scale))
+}
+
+/** その倍率で荒天が何日続くか（UI の表示用） */
+export function severeDayRange(scale: number): [number, number] {
+  const [lo, hi] = SEASON_DAYS.rain
+  return [Math.round(lo * scale), Math.round(hi * scale)]
 }

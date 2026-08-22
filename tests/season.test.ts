@@ -8,6 +8,7 @@ import {
   SEASON_DAYS,
   SEASON_OMEN_DAYS,
   SEASON_RAMP_TICKS,
+  SEVERE_SCALE_DEFAULT,
   SOURCE_STRENGTH,
   TICKS_PER_DAY,
 } from '../src/data/constants'
@@ -40,12 +41,64 @@ describe('季節', () => {
 
   it('季節の長さは決められた範囲に収まる', () => {
     const seq = runSeasons(11, 900)
+    // 荒天（大雨・日照り）は倍率がかかる。平年は素の日数のまま
+    const k = SEVERE_SCALE_DEFAULT
     for (const s of seq) {
       const [lo, hi] = SEASON_DAYS[s.kind]
-      expect(s.days).toBeGreaterThanOrEqual(lo)
+      const scale = s.kind === 'normal' ? 1 : k
+      expect(s.days).toBeGreaterThanOrEqual(lo * scale)
       // 日照りだけは通過するたびに延びる（上限あり）
-      expect(s.days).toBeLessThanOrEqual(s.kind === 'drought' ? DROUGHT_DAYS_MAX : hi)
+      expect(s.days).toBeLessThanOrEqual(
+        s.kind === 'drought' ? DROUGHT_DAYS_MAX * scale : hi * scale,
+      )
     }
+  })
+
+  it('荒天の長さは設定で変えられ、平年は変わらない', () => {
+    const lengths = (scale: number) => {
+      const s = new Season()
+      s.setSevereScale(scale)
+      const rng = new Rng(11)
+      s.advance(rng)
+      const out: { kind: SeasonKind; days: number }[] = [{ kind: s.kind, days: s.lengthDays }]
+      for (let t = 1; t < 900 * TICKS_PER_DAY; t++) {
+        s.advance(rng)
+        if (s.elapsed === 0) out.push({ kind: s.kind, days: s.lengthDays })
+      }
+      return out
+    }
+    const mean = (seq: { kind: SeasonKind; days: number }[], kind: SeasonKind) => {
+      const xs = seq.filter((s) => s.kind === kind)
+      return xs.reduce((a, s) => a + s.days, 0) / xs.length
+    }
+    const short = lengths(1)
+    const long = lengths(3)
+    expect(mean(long, 'rain')).toBeGreaterThan(mean(short, 'rain') * 2.5)
+    expect(mean(long, 'drought')).toBeGreaterThan(mean(short, 'drought') * 2.5)
+    // 平年は倍率の対象外。どちらの設定でも素の日数のまま
+    const [lo, hi] = SEASON_DAYS.normal
+    for (const seq of [short, long]) {
+      for (const x of seq.filter((v) => v.kind === 'normal')) {
+        expect(x.days).toBeGreaterThanOrEqual(lo)
+        expect(x.days).toBeLessThanOrEqual(hi)
+      }
+    }
+  })
+
+  it('荒天のさなかに設定を変えると、残りもその場で伸びる', () => {
+    const s = new Season()
+    s.kind = 'rain'
+    s.prevKind = 'rain'
+    s.lengthDays = 12
+    s.elapsed = TICKS_PER_DAY * 2
+    s.setSevereScale(3)
+    expect(s.lengthDays).toBe(18)
+
+    // 平年は変わらない
+    const n = new Season()
+    n.lengthDays = 24
+    n.setSevereScale(3)
+    expect(n.lengthDays).toBe(24)
   })
 
   it('日照りは繰り返すほど長くなる', () => {

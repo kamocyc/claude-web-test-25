@@ -18,6 +18,10 @@ export const TICKS_PER_DAY = 240 // 1 日 = 24 秒（1x 速度）
 export const MAX_Z = 24
 export const WALKABLE_MAX_DEPTH = 1.0 // これより深い水は歩けない
 export const MAX_STEP = 1 // 登れる段差
+// 水の中は歩きにくい。膝まで浸かれば足は進まないし、荷を担いでいればなおさら。
+// 歩ける限界の深さで WADE_COST_MAX 倍の時間がかかる。橋を架ける理由になる。
+export const WADE_FREE_DEPTH = 0.15 // くるぶし程度。ここまでは変わらない
+export const WADE_COST_MAX = 6 // 水深 WALKABLE_MAX_DEPTH のときの倍率
 
 // --- 水利設備 -------------------------------------------------------------
 export const PUMP_MIN_DEPTH = 0.5 // 踏車の稼働に必要な取水口水深
@@ -61,7 +65,10 @@ export const NEED_DECAY = {
 } as const
 export const NEED_SEEK_THRESHOLD = 0.35 // これを割ると充足行動へ
 export const STARVE_TICKS = TICKS_PER_DAY * 2 // 需要 0 が続いて死ぬまで
-export const GROWTH_STOCK_RATIO = 0.35 // 人口増加に必要な備蓄割合
+// 人が増えるのに要る備蓄の割合。蔵が満ちるまで増えない、という重い条件にしてある。
+// 荒天が 12〜20 日も続くと、そのあいだ村はほぼ何も穫れずに蓄えを食う。
+// 軽い条件で人が増えると、次の大雨で村ごと飢えて全滅する。
+export const GROWTH_STOCK_RATIO = 0.8 // 人口増加に必要な備蓄割合
 
 // --- 植生 -----------------------------------------------------------------
 export const TREE_GROW_TICKS = TICKS_PER_DAY * 6
@@ -71,7 +78,9 @@ export const PLANT_DIE_TICKS = TICKS_PER_DAY * 2 // 乾燥に耐えられる時�
 // --- 浸水 -----------------------------------------------------------------
 // 深さで段階が分かれる。浅い浸水は不便、深い浸水は損害。
 export const FLOOD_CROP_DEPTH = 0.1 // 畑の作物が流される水深（水田は別）
-export const FLOOD_TREE_DEPTH = 0.3 // 木が根腐れを起こす水深
+// 木は多少の冠水では枯れない。根まで水に沈む深さ（＝人が歩けない深さ）が続いて
+// はじめて根腐れする。大雨のたびに山が丸裸になると立て直しようがないため。
+export const FLOOD_TREE_DEPTH = 2.0 // 木が根腐れを起こす水深
 export const FLOOD_ROAD_DEPTH = 0.3 // 道が流される水深
 export const FLOOD_ROAD_WASH_CHANCE = 0.25 // 日ごとに道が流される確率
 export const FLOOD_STOP_DEPTH = 0.35 // 床上まで水が来て建物が働けなくなる水深
@@ -109,6 +118,12 @@ export const SEASON_DAYS = {
 } as const
 export const DROUGHT_DAYS_STEP = 1
 export const DROUGHT_DAYS_MAX = 14
+/**
+ * 大雨・日照りの長さの倍率の既定値。上の表は素の日数なので、実際は 12〜20 日になる。
+ * ゲーム中に「荒天 短／並／長」で変えられる（Season.setSevereScale）。
+ */
+export const SEVERE_SCALE_DEFAULT = 2
+export const SEVERE_SCALES = [1, 2, 3] as const
 /** 直前と違う季節を引くときの重み */
 export const SEASON_WEIGHT = { normal: 3, rain: 2, drought: 2 }
 /** 水源の流量倍率 */
