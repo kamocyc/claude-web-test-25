@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%F0%9F%8F%9E%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+    <title>里山 — 水を引き、稲を作り、火を防ぐ</title>
+    <link rel="stylesheet" href="./src/ui/style.css" />
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+
+    <div id="hud" class="panel top">
+      <div class="phead"><span>里山</span><button class="pmin" data-min>−</button></div>
+      <div class="row" id="resources"></div>
+      <div class="sep"></div>
+      <div class="row">
+        <span id="season" class="chip"></span>
+        <span id="population" class="chip"></span>
+        <span id="staff" class="chip warn hidden"></span>
+        <span id="trouble" class="chip bad hidden"></span>
+      </div>
+      <div class="sep"></div>
+      <div class="row" id="storage">
+        <button data-store="save">保存</button>
+        <button data-store="load">読込</button>
+        <button data-store="sample" title="村ができあがった状態を読み込む">サンプル</button>
+        <button id="people-btn" title="村の住民を一覧で見る（誰が飢えているか分かる）">住民</button>
+      </div>
+      <div class="sep"></div>
+      <div class="row" id="harsh">
+        <span class="label">大雨</span>
+        <button data-harsh="rain" data-scale="1">短</button>
+        <button data-harsh="rain" data-scale="2" class="active">並</button>
+        <button data-harsh="rain" data-scale="3">長</button>
+        <span class="label">日照り</span>
+        <button data-harsh="drought" data-scale="1">短</button>
+        <button data-harsh="drought" data-scale="2" class="active">並</button>
+        <button data-harsh="drought" data-scale="3">長</button>
+      </div>
+      <div class="sep keep"></div>
+      <div class="row keep" id="speed">
+        <button data-speed="0">‖</button>
+        <button data-speed="1" class="active">1x</button>
+        <button data-speed="3">3x</button>
+        <button data-speed="10">10x</button>
+      </div>
+    </div>
+
+    <div id="build" class="panel left">
+      <div class="phead"><span>建設</span><button class="pmin" data-min>−</button></div>
+      <div id="build-list"></div>
+      <p class="hint">
+        右ドラッグ / WASD で移動・ホイールで拡大<br />
+        中ドラッグ（または Shift + ドラッグ）で回転、上下に振ると見下ろす角度<br />
+        クリックで設置、Esc で選択解除
+      </p>
+    </div>
+
+    <div id="inspector" class="panel right hidden">
+      <div class="phead"><span>詳細</span><button class="pmin" data-min>−</button></div>
+      <div id="insp-body"></div>
+    </div>
+    <div id="roster" class="panel roster hidden">
+      <div class="phead"><span>住民</span><button class="pmin" data-min>−</button></div>
+      <div class="row wrap" id="roster-head"></div>
+      <div class="col" id="roster-gaps"></div>
+      <div id="roster-list"></div>
+    </div>
+    <div id="log" class="panel bottom">
+      <div class="phead"><span>出来事</span><button class="pmin" data-min>−</button></div>
+      <div id="log-list"></div>
+    </div>
+    <div id="tooltip" class="tooltip hidden"></div>
+    <script type="module" src="./src/main.ts"></script>
+  </body>
+</html>
