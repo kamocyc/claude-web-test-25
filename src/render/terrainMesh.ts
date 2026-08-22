@@ -149,14 +149,16 @@ export class TerrainMesh {
   private writeColors(colors: Float32Array, start: number, count: number, i: number): void {
     const { world, grid } = this
     const wet = world.irrigation.soilWet[i]
-    const under = world.water.depth[i] > 0.05
+    const depth = world.water.depth[i]
     const top = SCRATCH_TOP
     if (grid.levee[i] > 0) top.copy(LEVEE)
-    else if (under) top.copy(TOP_UNDER)
     else {
       top.copy(TOP_DRY).lerp(TOP_WET, wet)
       if (this.isShore(i)) top.lerp(SAND, 0.5)
     }
+    // 水没した列を一律の水底色に塗り替えると、浅い水でも底が見えなくなる。
+    // 深さに応じて寄せるだけにして、浅いところは砂や草がそのまま透けるようにする。
+    if (depth > 0.02) top.lerp(TOP_UNDER, Math.min(0.75, depth * 0.55))
     if (grid.road[i]) top.lerp(ROAD, 0.8) // 踏み固めた道
     // 高いところほど明るく、列ごとに少し揺らぐ
     const tint = (0.88 + Math.min(1, grid.ground[i] / 16) * 0.22) * (0.94 + jitter(i) * 0.12)

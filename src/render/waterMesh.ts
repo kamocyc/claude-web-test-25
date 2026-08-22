@@ -27,7 +27,8 @@ varying vec2 vFlow;
 varying vec3 vWorld;
 void main() {
   if (vDepth <= 0.004) discard;
-  vec3 col = mix(uShallow, uDeep, clamp(vDepth / 1.5, 0.0, 1.0));
+  // 深さで色を変えるが、浅いところは水底の色を活かすため染めすぎない
+  vec3 col = mix(uShallow, uDeep, clamp(vDepth / 2.6, 0.0, 1.0));
   float speed = length(vFlow);
   // 流れの向きに沿ってさざ波をスクロールさせる
   vec2 uv = vWorld.xz * 1.7 - vFlow * uTime * 1.1;
@@ -39,10 +40,12 @@ void main() {
   // 太陽のきらめき
   vec3 h = normalize(normalize(uSunDir) + v);
   col += vec3(1.0, 0.96, 0.88) * pow(max(h.y, 0.0), 220.0) * 0.5;
-  // 流れが速いところと岸際に泡
-  float foam = smoothstep(0.7, 1.8, speed) + smoothstep(0.2, 0.02, vDepth) * 0.35;
-  col = mix(col, vec3(0.55, 0.62, 0.66), clamp(foam, 0.0, 1.0) * 0.45);
-  float a = clamp(vDepth * 1.6, 0.0, 0.9) + clamp(foam, 0.0, 1.0) * 0.2;
+  // 流れが速いところと岸際に泡。いちばん透けてほしい水際を白く覆わないよう弱めにする
+  float foam = smoothstep(0.7, 1.8, speed) + smoothstep(0.12, 0.01, vDepth) * 0.2;
+  col = mix(col, vec3(0.55, 0.62, 0.66), clamp(foam, 0.0, 1.0) * 0.4);
+  // 人が歩ける・稲が育つ深さ（〜1.0）では水底が透けるように、傾きを寝かせる。
+  // 深いところはこれまでどおり濃く見せる。
+  float a = clamp(0.06 + vDepth * 0.52, 0.0, 0.86) + clamp(foam, 0.0, 1.0) * 0.15;
   gl_FragColor = vec4(col, clamp(a, 0.0, 0.96));
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -106,7 +109,7 @@ export class WaterMesh {
       side: THREE.DoubleSide,
       uniforms: {
         uTime: { value: 0 },
-        uShallow: { value: new THREE.Color(0x3f93b4) },
+        uShallow: { value: new THREE.Color(0x59a6c2) },
         uDeep: { value: new THREE.Color(0x0e3a55) },
         uSunDir: { value: new THREE.Vector3(45, 85, 28).normalize() },
       },
