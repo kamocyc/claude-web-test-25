@@ -11,7 +11,8 @@ import { Ghost } from './render/ghost'
 import { Hud } from './ui/hud'
 import { BuildMenu } from './ui/buildMenu'
 import { Inspector } from './ui/inspector'
-import { loadFromStorage, saveToStorage } from './save/save'
+import { deserializeInto, loadFromStorage, saveToStorage, serialize } from './save/save'
+import { createSampleGame } from './data/sampleTown'
 
 const canvas = document.getElementById('view') as HTMLCanvasElement
 const game = new Game({ w: 80, h: 80, seed: Math.floor(Math.random() * 1e6) })
@@ -23,7 +24,7 @@ const water = new WaterMesh(world)
 const entities = new EntityMeshes()
 const ghost = new Ghost()
 view.scene.add(terrain.group, water.mesh, entities.group, ghost.mesh)
-view.target.set(world.grid.xOf(world.startI), 0, world.grid.yOf(world.startI))
+centerOn(world.startI)
 
 // デバッグ用に主要オブジェクトを公開する（レイヤの表示切り替えなどに使う）
 ;(window as unknown as { game: unknown }).game = { game, view, terrain, water, entities }
@@ -39,10 +40,18 @@ const hud = new Hud(
       world.pushLog('セーブした')
       return
     }
+    if (action === 'sample') {
+      if (world.buildings.length > 1 && !confirm('今の町を捨ててサンプルの町を読み込みますか？')) return
+      world.pushLog('サンプルの町を用意している…')
+      // 生成に少し時間がかかるので、上の一行を描いてから始める
+      setTimeout(() => {
+        const sample = createSampleGame(world.grid.w, world.grid.h)
+        if (deserializeInto(world, serialize(sample.world))) afterLoad()
+      }, 50)
+      return
+    }
     if (loadFromStorage(world)) {
-      inspector.clear()
-      terrain.rebuildAll()
-      game.path.refresh(world.water)
+      afterLoad()
       world.pushLog('セーブデータを読み込んだ')
     } else {
       world.pushLog('読み込めるセーブデータがない')
@@ -56,19 +65,39 @@ const menu = new BuildMenu((def) => {
   else ghost.hide()
 })
 
+/** その列の地面の高さに注視点を合わせる（y を 0 のままにすると町が画面からずれる） */
+function centerOn(i: number): void {
+  view.target.set(world.grid.xOf(i) + 0.5, world.grid.ground[i], world.grid.yOf(i) + 0.5)
+}
+
+/** ワールドを差し替えた後に描画側とカメラを合わせ直す */
+function afterLoad(): void {
+  inspector.clear()
+  terrain.rebuildAll()
+  game.path.refresh(world.water)
+  centerOn(world.startI)
+}
+
 // --- 入力 -----------------------------------------------------------------
 let speed = 1
 let hover = -1
-let dragging = false
+/** ドラッグの用途。中ボタン / Shift + 左で回転、右でパン */
+let drag: 'pan' | 'rotate' | null = null
 let dragX = 0
 let dragY = 0
+const ROTATE_SENSITIVITY = 0.006
 const keys = new Set<string>()
 const tooltip = document.getElementById('tooltip') as HTMLElement
 
 canvas.addEventListener('pointermove', (e) => {
-  if (dragging) {
-    const k = view.dist * 0.0016
-    view.pan(-(e.clientX - dragX) * k, -(e.clientY - dragY) * k)
+  if (drag) {
+    if (drag === 'pan') {
+      const k = view.dist * 0.0016
+      view.pan(-(e.clientX - dragX) * k, -(e.clientY - dragY) * k)
+    } else {
+      // 掴んで回す感覚に合わせ、右へドラッグすると世界が時計回り（Q キーと同じ向き）
+      view.rotate((e.clientX - dragX) * ROTATE_SENSITIVITY)
+    }
     dragX = e.clientX
     dragY = e.clientY
     return
@@ -78,17 +107,18 @@ canvas.addEventListener('pointermove', (e) => {
   updateTooltip(e.clientX, e.clientY)
 })
 canvas.addEventListener('pointerdown', (e) => {
-  if (e.button === 0) {
+  if (e.button === 0 && !e.shiftKey) {
     onClick()
     return
   }
-  dragging = true
+  if (e.button === 1) e.preventDefault() // 中ボタンのオートスクロールを止める
+  drag = e.button === 1 || e.shiftKey ? 'rotate' : 'pan'
   dragX = e.clientX
   dragY = e.clientY
   canvas.setPointerCapture(e.pointerId)
 })
 canvas.addEventListener('pointerup', (e) => {
-  dragging = false
+  drag = null
   if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId)
 })
 canvas.addEventListener('contextmenu', (e) => e.preventDefault())

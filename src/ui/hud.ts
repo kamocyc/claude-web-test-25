@@ -1,19 +1,21 @@
 import { World } from '../core/world'
 import { RESOURCES, RESOURCE_LABEL } from '../data/buildings'
 
+export type StorageAction = 'save' | 'load' | 'sample'
+
 /** 画面上部の資源・季節・速度表示。 */
 export class Hud {
   private readonly resources = document.getElementById('resources') as HTMLElement
   private readonly season = document.getElementById('season') as HTMLElement
   private readonly population = document.getElementById('population') as HTMLElement
   private readonly logBox = document.getElementById('log') as HTMLElement
-  private lastLog = 0
+  private lastLog = ''
 
-  constructor(onSpeed: (speed: number) => void, onStorage: (action: 'save' | 'load') => void) {
+  constructor(onSpeed: (speed: number) => void, onStorage: (action: StorageAction) => void) {
     const storage = document.getElementById('storage') as HTMLElement
     storage.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest('button')
-      if (btn?.dataset.store) onStorage(btn.dataset.store as 'save' | 'load')
+      if (btn?.dataset.store) onStorage(btn.dataset.store as StorageAction)
     })
 
     const speedBox = document.getElementById('speed') as HTMLElement
@@ -42,8 +44,10 @@ export class Hud {
     }${s.daysLeft}日`
     this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
 
-    if (world.log.length !== this.lastLog) {
-      this.lastLog = world.log.length
+    // 件数だけで見ると、ロードで中身が入れ替わったときに更新されない
+    const logKey = `${world.log.length}:${world.log[world.log.length - 1] ?? ''}`
+    if (logKey !== this.lastLog) {
+      this.lastLog = logKey
       this.logBox.innerHTML = world.log.slice(-8).map((l) => `<div>${l}</div>`).join('')
       this.logBox.scrollTop = this.logBox.scrollHeight
     }

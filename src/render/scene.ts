@@ -1,9 +1,33 @@
 import * as THREE from 'three'
 import { Grid } from '../core/grid'
 
-const PITCH = 0.92
+export const PITCH = 0.92
 const MIN_DIST = 12
 const MAX_DIST = 170
+
+/**
+ * 注視点から見たカメラ位置のオフセット（単位ベクトル）。
+ * これが視線基底のもとになるので、パンの計算と必ず同じ式から導く。
+ */
+export function cameraOffset(yaw: number, pitch: number = PITCH): THREE.Vector3 {
+  const cp = Math.cos(pitch)
+  return new THREE.Vector3(Math.sin(yaw) * cp, Math.sin(pitch), Math.cos(yaw) * cp)
+}
+
+/**
+ * 画面に沿った移動量を世界座標の移動量に直す。
+ * dx = 画面右方向、dz = 画面手前方向（奥へ進むときは負の値を渡す）。
+ *
+ * カメラは target + cameraOffset(yaw) * dist にいて target を見ているので、
+ *   画面右   = ( cos yaw, 0, -sin yaw)
+ *   画面手前 = ( sin yaw, 0,  cos yaw)
+ * となる。yaw の回転を逆向きに当てると、カメラを回したときに W が後退になる。
+ */
+export function panDelta(yaw: number, dx: number, dz: number): { x: number; z: number } {
+  const s = Math.sin(yaw)
+  const c = Math.cos(yaw)
+  return { x: dx * c + dz * s, z: -dx * s + dz * c }
+}
 
 /** 3D 見下ろしカメラとレンダラ。 */
 export class SceneView {
@@ -60,10 +84,9 @@ export class SceneView {
   }
 
   pan(dx: number, dz: number): void {
-    const s = Math.sin(this.yaw)
-    const c = Math.cos(this.yaw)
-    this.target.x += dx * c - dz * s
-    this.target.z += dx * s + dz * c
+    const d = panDelta(this.yaw, dx, dz)
+    this.target.x += d.x
+    this.target.z += d.z
     this.target.x = THREE.MathUtils.clamp(this.target.x, 0, this.grid.w)
     this.target.z = THREE.MathUtils.clamp(this.target.z, 0, this.grid.h)
   }
@@ -75,8 +98,7 @@ export class SceneView {
   }
 
   updateCamera(): void {
-    const cp = Math.cos(PITCH)
-    const offset = new THREE.Vector3(Math.sin(this.yaw) * cp, Math.sin(PITCH), Math.cos(this.yaw) * cp)
+    const offset = cameraOffset(this.yaw)
     this.camera.position.copy(this.target).addScaledVector(offset, this.dist)
     this.camera.lookAt(this.target)
     this.sun.position.copy(this.target).add(new THREE.Vector3(40, 80, 25))
