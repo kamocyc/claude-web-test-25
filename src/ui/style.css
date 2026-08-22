@@ -29,13 +29,27 @@ canvas { display: block; width: 100vw; height: 100vh; }
 .top {
   top: 12px; left: 50%; transform: translateX(-50%);
   display: flex; gap: 10px; align-items: center;
-  /* 表示が増えて画面からはみ出すと、速度ボタンが押せなくなる。狭ければ折り返す */
-  max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center;
+  /*
+   * 表示が増えて画面からはみ出すと、速度ボタンが押せなくなる。狭ければ折り返す。
+   * 幅は左右のパネル（建設 210 / 住民一覧 300）のぶんを空けて取るので、
+   * 窓を狭めても左右のパネルに乗り上げない。
+   */
+  max-width: calc(100vw - 552px); flex-wrap: wrap; justify-content: center;
 }
 #resources { flex-wrap: wrap; }
 .left { top: 12px; left: 12px; width: 210px; max-height: calc(100vh - 24px); overflow-y: auto; }
-.right { top: 12px; right: 12px; width: 240px; }
-.bottom { left: 12px; bottom: 12px; width: 300px; max-height: 130px; overflow-y: auto; font-size: 12px; color: var(--muted); }
+/* 住民一覧（右下）と重ならないよう、高さの上限を切って中を繰れるようにする */
+.right { top: 12px; right: 12px; width: 240px; max-height: calc(54vh - 24px); overflow-y: auto; }
+/*
+ * 出来事のログ。建設パネル（左 12+210）と住民一覧（右 12+300）の外側に幅を取るので、
+ * どちらとも重ならない。読むだけの帯なので、クリックは下の地面へ通す。
+ */
+.bottom {
+  left: 234px; right: 324px; bottom: 12px;
+  max-height: 130px; overflow-y: auto;
+  pointer-events: none;
+  font-size: 12px; color: var(--muted);
+}
 .hidden { display: none; }
 .row.wrap { flex-wrap: wrap; gap: 4px; }
 

@@ -4,6 +4,7 @@ import { BuildingDef, defOf } from '../data/buildings'
 import {
   BOAT_MIN_DEPTH,
   DAM_RESIST,
+  DIG_SOIL_YIELD,
   FLOODGATE_MAX_HEIGHT,
   MAX_Z,
   PADDY_MAX_DEPTH,
@@ -154,6 +155,8 @@ export function completeBuild(world: World, b: Building): void {
       const n = Math.min(b.pending, grid.natural[b.i])
       grid.natural[b.i] -= n
       grid.refreshGround(b.i)
+      // 掘った土は蔵へ入り、土手と堰の材料になる（蔵が満杯なら入る分だけ）
+      world.addStock('soil', DIG_SOIL_YIELD * n)
       world.removeBuilding(b)
       break
     }
@@ -198,10 +201,15 @@ export function displaceWater(world: World, i: number): void {
   if (excess > 0 && neighbors.length > 0) water.depth[neighbors[0]] += excess
 }
 
-/** 建物を撤去する。地形への影響も元に戻す。 */
+/**
+ * 建物を撤去する。地形への影響も元に戻し、土は掘り返せるので戻ってくる。
+ * 返るのは払った分だけなので、置いて壊すだけでは土は増えない。
+ */
 export function demolish(world: World, b: Building): void {
   const def = defOf(b.defId)
   const { grid } = world
+  const soil = def.cost.soil ?? 0
+  if (soil > 0 && b.built) world.addStock('soil', soil * (def.kind === 'levee' ? b.stack : 1))
   switch (def.kind) {
     case 'dam':
     case 'floodgate':

@@ -245,6 +245,7 @@ describe('浸水と村', () => {
     const g = new Game({ w: 40, h: 40, seed: 21 })
     const w = g.world
     w.stock.log = 999
+    w.stock.soil = 999
     w.stock.plank = 999
     for (let t = 0; t < TICKS_PER_DAY; t++) g.step()
 
@@ -280,6 +281,7 @@ describe('浸水と村', () => {
       const g = new Game({ w: 48, h: 48, seed: 21 })
       const w = g.world
       w.stock.log = 9999
+      w.stock.soil = 9999
       for (let t = 0; t < TICKS_PER_DAY * 2; t++) g.step()
 
       // 氾濫原の一角（川岸から 6 マス）を村の予定地にする

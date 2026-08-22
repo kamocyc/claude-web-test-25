@@ -1,7 +1,7 @@
 import { World } from '../core/world'
 import { RESOURCES, RESOURCE_LABEL } from '../data/buildings'
 import { SEASON_LABEL, severeDayRange } from '../sim/season'
-import { AILMENTS, AILMENT_LABEL, summarize } from '../sim/people'
+import { AILMENTS, AILMENT_LABEL, shortageOf, summarize } from '../sim/people'
 
 export type StorageAction = 'save' | 'load' | 'sample'
 
@@ -71,11 +71,16 @@ export class Hud {
       this.population.textContent = `人口 ${world.citizens.length} / ${world.housing}`
     }
 
-    // 需要が尽きている人数は、一覧を開いていなくても目に入るようにする
+    // 需要が尽きている人数は、一覧を開いていなくても目に入るようにする。
+    // 蔵が空なら、人数より先にそれを出す（飲み食いに行けない原因はそちらにある）
     const people = summarize(world)
-    const trouble = AILMENTS.filter((k) => people.severe[k] > 0)
-      .map((k) => `${AILMENT_LABEL[k]} ${people.severe[k]}`)
-      .join(' ・ ')
+    const short = shortageOf(world)
+    const marks = AILMENTS.filter((k) => people.severe[k] > 0).map(
+      (k) => `${AILMENT_LABEL[k]} ${people.severe[k]}`,
+    )
+    if (short.water) marks.unshift('水が尽きた')
+    if (short.food) marks.unshift('食べ物が尽きた')
+    const trouble = marks.join(' ・ ')
     if (trouble !== this.lastTrouble) {
       this.lastTrouble = trouble
       this.trouble.textContent = trouble

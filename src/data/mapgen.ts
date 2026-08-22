@@ -153,6 +153,8 @@ export function generateWorld(opts: MapOptions = {}): World {
   world.stock.plank = 20
   world.stock.water = 45
   world.stock.meal = 45
+  // 最初の土手 3 マスぶん。それ以上の堤は堀割を掘って土を出すことになる
+  world.stock.soil = 12
 
   for (let n = 0; n < 5; n++) world.spawnCitizen(startI)
   world.irrigation.recompute(world.water, [])

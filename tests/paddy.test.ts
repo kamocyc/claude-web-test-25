@@ -136,6 +136,7 @@ function canalScenario(dig: boolean): {
   const g = new Game({ w: 50, h: 50, seed: 21 })
   const w = g.world
   w.stock.log = 999
+  w.stock.soil = 999
   for (let t = 0; t < TICKS_PER_DAY; t++) g.step() // 川を落ち着かせる
 
   const { grid, water } = w

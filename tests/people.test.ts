@@ -10,10 +10,12 @@ import {
   daysText,
   deathLog,
   jobNameOf,
+  shortageOf,
   summarize,
   ticksToDeath,
 } from '../src/sim/people'
 import { NEED_SEEK_THRESHOLD, STARVE_TICKS, TICKS_PER_DAY } from '../src/data/constants'
+import { warnShortage } from '../src/sim/step'
 
 function town(): World {
   const grid = new Grid(16, 9)
@@ -124,5 +126,70 @@ describe('力尽きる', () => {
     expect(c.starveKind).toBe('')
     expect(c.starveTicks).toBe(0)
     expect(deathLog(c)).toBe(`${c.name} が力尽きた…`)
+  })
+})
+
+describe('村として切らしているもの', () => {
+  it('蔵が空なら、水も食べ物も「尽きた」として立つ', () => {
+    const w = town()
+    expect(shortageOf(w)).toEqual({ water: true, food: true })
+
+    w.stock.water = 1
+    w.stock.wheat = 1
+    expect(shortageOf(w)).toEqual({ water: false, food: false })
+
+    // 米が切れても麦が残っていれば食べ物はある
+    w.stock.wheat = 0
+    w.stock.meal = 3
+    expect(shortageOf(w).food).toBe(false)
+
+    // 1 杯に足りない端数は、飲めないので「尽きた」扱い
+    w.stock.water = 0.4
+    expect(shortageOf(w).water).toBe(true)
+  })
+
+  it('蔵に水が無ければ、喉が渇いていても飲みに行かない', () => {
+    const w = town()
+    w.createBuilding(defOf('storage'), w.grid.idx(1, 1), true)
+    const c = person(w, { water: 0.1 })
+    const path = new PathFinder(w.grid)
+    path.refresh(w.water)
+
+    w.tick++
+    updateCitizens(w, path)
+    expect(c.task).not.toBe('drink')
+
+    // 水が入れば、そのまま飲みに向かう
+    w.stock.water = 5
+    c.task = 'idle'
+    w.tick++
+    updateCitizens(w, path)
+    expect(c.task).toBe('drink')
+  })
+
+  it('尽きているあいだログは一度だけで、いったん戻ればまた出る', () => {
+    const w = town()
+    w.stock.meal = 99 // 食べ物の警告は混ぜない
+    person(w, { water: 0.1 })
+    const dryLogs = (): number => w.log.filter((l) => l.includes('蔵の水が尽きた')).length
+
+    for (let d = 0; d < 3; d++) warnShortage(w) // 3 日ぶん
+    expect(dryLogs()).toBe(1)
+
+    // 水が戻れば黙り、また尽きればもう一度言う
+    w.stock.water = 10
+    warnShortage(w)
+    expect(dryLogs()).toBe(1)
+    w.stock.water = 0
+    warnShortage(w)
+    expect(dryLogs()).toBe(2)
+  })
+
+  it('欲しがっている人がいなければ黙っている', () => {
+    const w = town()
+    w.stock.meal = 99
+    person(w, { water: 1 }) // まだ喉は渇いていない
+    for (let d = 0; d < 3; d++) warnShortage(w) // 3 日ぶん
+    expect(w.log.some((l) => l.includes('蔵の水が尽きた'))).toBe(false)
   })
 })

@@ -51,6 +51,7 @@ describe('灌漑で耕作できる土地が広がる', () => {
     const g = new Game({ w: 48, h: 48, seed: 21 })
     const w = g.world
     w.stock.log = 999
+    w.stock.soil = 999
     w.stock.plank = 999
     w.stock.water = 999 // 塔の水切れで話がぶれないようにする
     run(g, 120)
@@ -104,6 +105,7 @@ describe('灌漑で耕作できる土地が広がる', () => {
     const g = new Game({ w: 48, h: 48, seed: 21 })
     const w = g.world
     w.stock.log = 999
+    w.stock.soil = 999
     w.stock.plank = 999
     w.stock.water = 999
     run(g, 120)
@@ -189,6 +191,7 @@ function droughtScenario(opts: {
   const g = new Game({ w: 48, h: 48, seed: 31 })
   const w = g.world
   w.stock.log = 999
+  w.stock.soil = 999
   w.stock.plank = 999
   run(g, 120)
 

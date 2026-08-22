@@ -222,6 +222,7 @@ describe('町ぐるみの火事', () => {
     const g = new Game({ w: 40, h: 40, seed: 21 })
     const w = g.world
     w.stock.log = 999
+    w.stock.soil = 999
     w.stock.plank = 999
     for (let t = 0; t < TICKS_PER_DAY; t++) g.step()
     if (guarded) {

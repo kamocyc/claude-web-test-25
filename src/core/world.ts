@@ -4,6 +4,7 @@ import { WaterSim } from '../sim/water'
 import { Irrigation } from '../sim/irrigation'
 import { Season } from '../sim/season'
 import { BuildingDef, ResourceKind, Stock, defOf, emptyStock } from '../data/buildings'
+import { JOB_PRIORITY_NORMAL } from '../data/constants'
 
 export interface Building {
   id: number
@@ -19,6 +20,8 @@ export interface Building {
   staffPresent: number
   /** 割り当てられた住民 id */
   workers: number[]
+  /** 働き手を回す優先度。0 = 低 / 1 = 並 / 2 = 高。遊ぶ側が建物ごとに決める */
+  priority: number
   /** 水門の堰高 */
   gateHeight: number
   /** 完成済みの積み上げ数（土手）*/
@@ -117,6 +120,11 @@ export class World {
   startI = 0
   /** 直近の出来事（UI のログ） */
   log: string[] = []
+  /**
+   * 蔵の水・食べ物が尽きたことを既に告げたか。
+   * 涸れているあいだ言い続けないための一時の目印なので、セーブには入れない。
+   */
+  warned = { water: false, food: false }
 
   constructor(grid: Grid, seed: number) {
     this.grid = grid
@@ -171,6 +179,7 @@ export class World {
       progress: 0,
       staffPresent: 0,
       workers: [],
+      priority: JOB_PRIORITY_NORMAL,
       gateHeight: def.kind === 'floodgate' ? 3 : 0,
       stack: 0,
       pending: 0,

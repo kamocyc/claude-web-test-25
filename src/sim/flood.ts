@@ -1,6 +1,6 @@
 import { World } from '../core/world'
 import type { Building } from '../core/world'
-import { BuildingKind, ResourceKind, RESOURCES, defOf } from '../data/buildings'
+import { BuildingKind, PERISHABLE, defOf } from '../data/buildings'
 import {
   FLOOD_DAMAGE_CHANCE,
   FLOOD_DAMAGE_DEPTH,
@@ -74,7 +74,7 @@ function spoilStock(world: World): void {
   // 浸かった蔵の割合だけ傷む
   const lost = FLOOD_SPOIL_RATE * (flooded / total)
   let any = 0
-  for (const k of RESOURCES as readonly ResourceKind[]) {
+  for (const k of PERISHABLE) {
     const drop = world.stock[k] * lost
     world.stock[k] -= drop
     any += drop

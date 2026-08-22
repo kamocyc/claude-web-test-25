@@ -2,7 +2,7 @@ import { World } from '../core/world'
 import type { Building, Citizen } from '../core/world'
 import { emptyStock, Stock } from '../data/buildings'
 import { SEASON_KINDS, SeasonKind } from '../sim/season'
-import { SEVERE_SCALE_DEFAULT } from '../data/constants'
+import { JOB_PRIORITY_NORMAL, SEVERE_SCALE_DEFAULT } from '../data/constants'
 
 function seasonKind(v: string): SeasonKind {
   return (SEASON_KINDS as readonly string[]).includes(v) ? (v as SeasonKind) : 'normal'
@@ -158,7 +158,8 @@ export function deserializeInto(world: World, json: string): boolean {
   world.season.scripted = (data.season.scripted ?? []).map(seasonKind)
   world.sources = data.sources
   world.startI = data.startI
-  world.buildings = data.buildings
+  // 優先度の無かった頃のセーブは「並」として読む
+  world.buildings = data.buildings.map((b) => ({ ...b, priority: b.priority ?? JOB_PRIORITY_NORMAL }))
   // 古いセーブには理由が入っていない
   world.citizens = data.citizens.map((c) => ({ ...c, starveKind: c.starveKind ?? '' }))
   world.nextBuildingId = data.nextBuildingId

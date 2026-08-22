@@ -15,6 +15,7 @@ function flat(w = 20, h = 9): World {
   grid.refreshAllGround()
   const world = new World(grid, 1)
   world.stock.log = 999
+  world.stock.soil = 999
   world.stock.plank = 999
   return world
 }

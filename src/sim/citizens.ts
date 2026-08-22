@@ -12,15 +12,32 @@ import { PathFinder } from './pathfinding'
 import { completeBuild } from './structures'
 import { fightFire } from './fire'
 import { idleByWater } from './production'
-import { deathLog } from './people'
+import { deathLog, shortageOf } from './people'
 
 const ARRIVE_EPS = 0.06
 
-/** 職場の割り当て：空きスロットのある建物へ無職の住民を配属する。 */
+/**
+ * 職場の割り当ての強さ。
+ *
+ * 遊ぶ側が決めた建物ごとの優先度が先に効き、同じ段のなかを建物の種類ごとの
+ * 既定（BuildingDef.jobPriority）が並べる。全部が「並」なら今までと同じ順になる。
+ */
+export function jobRank(b: Building): number {
+  return b.priority * 100 + (defOf(b.defId).jobPriority ?? 0)
+}
+
+/**
+ * 職場の割り当て：空きスロットのある建物へ住民を配属する。
+ *
+ * 無職の人を配ってもまだ空きが残るなら、**優先度の低い職場から人を引き抜く**。
+ * これが無いと、村の全員が職に就いたあとは優先度を上げても何も起こらない
+ * （新しく建てた踏車に誰も来ない、ということが起きる）。
+ */
 export function assignJobs(world: World): void {
   // 毎 tick 割り当て直すと経路探索が無駄なので間引く
   if (world.tick % 10 !== 0) return
   const openings: Building[] = []
+  const staffed: Building[] = []
   for (const b of world.buildings) {
     if (!b.built) continue
     const def = defOf(b.defId)
@@ -38,17 +55,46 @@ export function assignJobs(world: World): void {
       continue
     }
     for (let n = b.workers.length; n < def.workers; n++) openings.push(b)
+    if (b.workers.length > 0) staffed.push(b)
   }
   if (openings.length === 0) return
   // 優先度の高い仕事から埋める（末尾から取り出すので昇順に並べる）
-  openings.sort((a, b) => (defOf(a.defId).jobPriority ?? 0) - (defOf(b.defId).jobPriority ?? 0))
+  openings.sort((a, b) => jobRank(a) - jobRank(b))
   for (const c of world.citizens) {
+    if (openings.length === 0) break
     if (c.jobId >= 0) continue
-    const b = openings.pop()
-    if (!b) break
+    const b = openings.pop() as Building
     b.workers.push(c.id)
     c.jobId = b.id
     c.task = 'idle'
+  }
+  if (openings.length > 0) poach(world, openings, staffed)
+}
+
+/**
+ * 空いている高い優先度の職場へ、低い職場から人を移す。
+ *
+ * 強い側が真に強いときだけ動かす（等しければ動かさない）ので、
+ * 移した先が次の回に移し返される、という往復は起きない。
+ */
+function poach(world: World, openings: Building[], staffed: Building[]): void {
+  const donors = staffed.slice().sort((a, b) => jobRank(b) - jobRank(a)) // 弱い順に取り出す
+  while (openings.length > 0 && donors.length > 0) {
+    const want = openings[openings.length - 1] // いちばん強い空き
+    const from = donors[donors.length - 1] // いちばん弱い職場
+    if (from.workers.length === 0) {
+      donors.pop()
+      continue
+    }
+    if (jobRank(want) <= jobRank(from)) break // これ以上は引き抜くまでもない
+    openings.pop()
+    const id = from.workers.pop() as number
+    want.workers.push(id)
+    const c = world.citizens.find((x) => x.id === id)
+    if (c) {
+      c.jobId = want.id
+      c.task = 'idle'
+    }
   }
 }
 
@@ -129,11 +175,12 @@ function decideTask(world: World, path: PathFinder, c: Citizen, quota: BuildQuot
   // 需要は優先度順に独立して見る。住居が無いからといって水を飲みに行かない、
   // というようなことが起きないようにする。
   const n = c.needs
+  const short = shortageOf(world)
   if (n.sleep < NEED_SEEK_THRESHOLD &&
       travelTo(world, path, c, 'sleep', (b) => b.built && defOf(b.defId).kind === 'house')) return
-  if (n.water < NEED_SEEK_THRESHOLD && world.stock.water > 0 &&
+  if (n.water < NEED_SEEK_THRESHOLD && !short.water &&
       travelTo(world, path, c, 'drink', (b) => b.built && !!defOf(b.defId).storage)) return
-  if (n.food < NEED_SEEK_THRESHOLD && (world.stock.meal > 0 || world.stock.wheat > 0) &&
+  if (n.food < NEED_SEEK_THRESHOLD && !short.food &&
       travelTo(world, path, c, 'eat', (b) => b.built && !!defOf(b.defId).storage)) return
 
   // 見つかった火事があれば、火消しは何をおいても駆けつける

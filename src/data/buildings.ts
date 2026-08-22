@@ -1,9 +1,10 @@
-export const RESOURCES = ['water', 'log', 'plank', 'rice', 'meal', 'wheat'] as const
+export const RESOURCES = ['water', 'soil', 'log', 'plank', 'rice', 'meal', 'wheat'] as const
 export type ResourceKind = (typeof RESOURCES)[number]
 export type Stock = Record<ResourceKind, number>
 
 export const RESOURCE_LABEL: Record<ResourceKind, string> = {
   water: '水',
+  soil: '土',
   log: '丸太',
   plank: '板材',
   rice: '籾',
@@ -11,8 +12,11 @@ export const RESOURCE_LABEL: Record<ResourceKind, string> = {
   wheat: '麦',
 }
 
+/** 水に浸かって傷むもの。土は濡れても土のままなので入らない */
+export const PERISHABLE: readonly ResourceKind[] = RESOURCES.filter((k) => k !== 'soil')
+
 export function emptyStock(): Stock {
-  return { water: 0, log: 0, plank: 0, rice: 0, meal: 0, wheat: 0 }
+  return { water: 0, soil: 0, log: 0, plank: 0, rice: 0, meal: 0, wheat: 0 }
 }
 
 export type BuildingKind =
@@ -317,10 +321,10 @@ export const BUILDINGS: readonly BuildingDef[] = [
   {
     id: 'levee',
     name: '土手',
-    desc: '水を完全にせき止める。積み上げれば高い壁になる。',
+    desc: '掘った土を積んで水を完全にせき止める。積み上げれば高い壁になる。土は堀割で出る。',
     kind: 'levee',
     category: 'terrain',
-    cost: { log: 2 },
+    cost: { soil: 4 },
     buildPoints: 30,
     workers: 0,
     color: 0x9a9a90,
@@ -330,10 +334,10 @@ export const BUILDINGS: readonly BuildingDef[] = [
   {
     id: 'dam',
     name: '堰',
-    desc: '高さ 1 まで水をせき止め、超えた分は越していく。水を溜める基本。',
+    desc: '土を突き固めて高さ 1 まで水をせき止め、超えた分は越していく。水を溜める基本。',
     kind: 'dam',
     category: 'terrain',
-    cost: { log: 3 },
+    cost: { soil: 3 },
     buildPoints: 40,
     workers: 0,
     color: 0x8f7f6a,
@@ -346,7 +350,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
     desc: '堰の高さを 0〜3 で加減できる。日照りに備えて水位を操る。',
     kind: 'floodgate',
     category: 'terrain',
-    cost: { log: 4, plank: 2 },
+    cost: { soil: 3, plank: 2 },
     buildPoints: 70,
     workers: 0,
     color: 0x6b6b78,
@@ -383,7 +387,7 @@ export const BUILDINGS: readonly BuildingDef[] = [
   {
     id: 'dig',
     name: '堀割',
-    desc: '地面を 1 段掘り下げる。田へ水を引き、深く掘れば舟の通る運河になる。',
+    desc: '地面を 1 段掘り下げ、出た土を蔵へ入れる。田へ水を引き、深く掘れば舟の通る運河になる。土手と堰はこの土で築く。',
     kind: 'dig',
     category: 'terrain',
     cost: {},

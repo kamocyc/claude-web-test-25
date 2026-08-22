@@ -17,6 +17,8 @@ import { moveLoads, updateProduction, updateVegetation } from './production'
 import { Logistics } from './logistics'
 import { SEASON_LABEL, SEASON_OMEN } from './season'
 import { igniteDaily, updateFire } from './fire'
+import { NEED_SEEK_THRESHOLD } from '../data/constants'
+import { shortageOf } from './people'
 import { floodDamage } from './flood'
 
 /** 1 tick の実行順序 */
@@ -84,6 +86,7 @@ export function stepWorld(
 function onNewDay(world: World): void {
   igniteDaily(world)
   floodDamage(world)
+  warnShortage(world)
 
   // 次の季節の前触れ。残り日数がちょうど閾値になった日に一度だけ出す
   const season = world.season
@@ -106,4 +109,34 @@ function onNewDay(world: World): void {
     world.pushLog(`${c.name} が仲間に加わった`)
   }
   if (world.citizens.length === 0) world.pushLog('村は絶えた…')
+}
+
+/**
+ * 蔵が空で、しかも欲しがっている人がいる日に一度だけ知らせる。
+ *
+ * これが無いと、住民は黙って働き続けたまま渇きで倒れる（飲みに行く枝が
+ * 蔵の中身を見て落ちるので、当人の様子には何も出ない）。
+ */
+export function warnShortage(world: World): void {
+  const short = shortageOf(world)
+  const wants = (k: 'water' | 'food'): boolean =>
+    world.citizens.some((c) => c.needs[k] < NEED_SEEK_THRESHOLD)
+
+  if (short.water && wants('water')) {
+    if (!world.warned.water) {
+      world.warned.water = true
+      world.pushLog('蔵の水が尽きた — 踏車を建て、取水口の水深を保つこと')
+    }
+  } else if (!short.water) {
+    world.warned.water = false
+  }
+
+  if (short.food && wants('food')) {
+    if (!world.warned.food) {
+      world.warned.food = true
+      world.pushLog('蔵の食べ物が尽きた — 田畑と精米所の手を確かめること')
+    }
+  } else if (!short.food) {
+    world.warned.food = false
+  }
 }

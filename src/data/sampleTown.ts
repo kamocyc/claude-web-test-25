@@ -256,6 +256,7 @@ export function createSampleGame(w = 80, h = 80): Game {
   // 建設資材は潤沢にしておき、最後に村らしい在庫へ戻す
   world.stock.log = 9999
   world.stock.plank = 9999
+  world.stock.soil = 9999
   for (let t = 0; t < 120; t++) g.step()
 
   // 1. まず川を堰き止める（水位が上がってから水辺の設備を置く）
@@ -348,6 +349,7 @@ export function createSampleGame(w = 80, h = 80): Game {
   while (world.citizens.length < 16) world.spawnCitizen(world.startI)
   world.stock.log = 45
   world.stock.plank = 30
+  world.stock.soil = 24
   world.stock.rice = 18
   world.stock.wheat = 10
   world.stock.meal = 90
@@ -401,6 +403,7 @@ export function createSampleGame(w = 80, h = 80): Game {
   // 蔵を満たすのは最後。先に満たすと、落ち着かせて回しているあいだに人が増えてしまう
   world.stock.log = 45
   world.stock.plank = 30
+  world.stock.soil = 24
   world.stock.meal = 300
   world.stock.water = 300
   world.log = []

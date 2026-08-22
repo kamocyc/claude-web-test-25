@@ -29,6 +29,9 @@ export const PUMP_DRAW_PER_UNIT = 0.02 // 水 1 個の生産で減る水深
 export const DUMP_ADD_PER_UNIT = 0.02 // 放水設備が水 1 個で足す水深
 export const DAM_RESIST = 0.3 // 堰/水門の通水抵抗
 export const FLOODGATE_MAX_HEIGHT = 3
+// 堀割で 1 段掘るごとに出る土。土手 1 段（4）と釣り合わせてある。
+// 「掘った土で堤を築く」という往復が成り立ち、土の総量は地形の体積で頭打ちになる。
+export const DIG_SOIL_YIELD = 4
 
 // --- 灌漑 -----------------------------------------------------------------
 export const MOISTURE_RANGE = 12 // 水辺からの到達距離
@@ -64,6 +67,11 @@ export const NEED_DECAY = {
   sleep: 1 / (TICKS_PER_DAY * 1.2),
 } as const
 export const NEED_SEEK_THRESHOLD = 0.35 // これを割ると充足行動へ
+// 働き手を回す優先度（建物ごと）。遊ぶ側が 低・並・高 で切り替える。
+// 建物ごとの指定が先で、同じ段のなかを BuildingDef.jobPriority が並べる。
+export const JOB_PRIORITIES = [0, 1, 2] as const
+export const JOB_PRIORITY_NORMAL = 1
+export const JOB_PRIORITY_LABEL = ['低', '並', '高'] as const
 export const STARVE_TICKS = TICKS_PER_DAY * 2 // 需要 0 が続いて死ぬまで
 // 人が増えるのに要る備蓄の割合。蔵が満ちるまで増えない、という重い条件にしてある。
 // 荒天が 12〜20 日も続くと、そのあいだ村はほぼ何も穫れずに蓄えを食う。

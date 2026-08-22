@@ -1,7 +1,15 @@
 import { World } from '../core/world'
 import type { Building, Citizen } from '../core/world'
 import { defOf } from '../data/buildings'
-import { CROP_GROW_TICKS, FLOODGATE_MAX_HEIGHT, LOAD_CAP, ROUTE_RATE } from '../data/constants'
+import {
+  CROP_GROW_TICKS,
+  FLOODGATE_MAX_HEIGHT,
+  JOB_PRIORITIES,
+  JOB_PRIORITY_LABEL,
+  LOAD_CAP,
+  NEED_SEEK_THRESHOLD,
+  ROUTE_RATE,
+} from '../data/constants'
 import { Logistics, ROUTE_LABEL } from '../sim/logistics'
 import { demolish, setGateHeight } from '../sim/structures'
 import { canFlood } from '../sim/flood'
@@ -12,6 +20,7 @@ import {
   ailmentsOf,
   daysText,
   jobNameOf,
+  shortageOf,
   ticksToDeath,
 } from '../sim/people'
 
@@ -40,6 +49,10 @@ export class Inspector {
       if (!b) return
       if (btn.dataset.gate !== undefined) {
         setGateHeight(this.world, b, Number(btn.dataset.gate))
+        this.update()
+      } else if (btn.dataset.prio !== undefined) {
+        // 次に割り当てを見直す tick（10 tick ごと）で効く
+        b.priority = Number(btn.dataset.prio)
         this.update()
       } else if (btn.dataset.action === 'demolish') {
         demolish(this.world, b)
@@ -79,6 +92,9 @@ export class Inspector {
       for (const btn of this.el.querySelectorAll<HTMLButtonElement>('button[data-gate]')) {
         btn.classList.toggle('on', Number(btn.dataset.gate) === b.gateHeight)
       }
+      for (const btn of this.el.querySelectorAll<HTMLButtonElement>('button[data-prio]')) {
+        btn.classList.toggle('on', Number(btn.dataset.prio) === b.priority)
+      }
     } else {
       const c = this.world.citizens.find((x) => x.id === sel.id)
       if (!c) return this.clear()
@@ -98,6 +114,16 @@ export class Inspector {
   private buildingFrame(b: Building): string {
     const def = defOf(b.defId)
     const parts = [`<h2>${def.name}</h2>`, `<div class="cost">${def.desc}</div>`, '<div id="insp-dyn"></div>']
+    if (def.workers > 0) {
+      parts.push(
+        '<div class="cost" style="margin-top:6px" title="高くすると、手が足りないときに優先度の低い職場から人が移ってくる">働き手の優先</div><div class="gate">',
+      )
+      // 高いほうを左に並べる（押したときの強さの順が目で分かる）
+      for (const p of [...JOB_PRIORITIES].reverse()) {
+        parts.push(`<button data-prio="${p}">${JOB_PRIORITY_LABEL[p]}</button>`)
+      }
+      parts.push('</div>')
+    }
     if (def.kind === 'floodgate') {
       parts.push('<div class="cost" style="margin-top:6px">堰の高さ</div><div class="gate">')
       for (let h = 0; h <= FLOODGATE_MAX_HEIGHT; h++) parts.push(`<button data-gate="${h}">${h}</button>`)
@@ -156,6 +182,14 @@ export class Inspector {
         )
         .join('')
       parts.push(`<div class="pmarks">${marks}</div>`)
+    }
+    // 欲しがっているのに蔵が空なら、当人ではなく村の側に原因がある
+    const short = shortageOf(this.world)
+    if (short.water && c.needs.water < NEED_SEEK_THRESHOLD) {
+      parts.push('<div class="cost bad-text">蔵に水が無い — 飲みに行けない</div>')
+    }
+    if (short.food && c.needs.food < NEED_SEEK_THRESHOLD) {
+      parts.push('<div class="cost bad-text">蔵に食べ物が無い</div>')
     }
     const left = ticksToDeath(c)
     if (left !== null) {

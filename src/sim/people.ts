@@ -43,6 +43,20 @@ export function ailmentsOf(c: Citizen): { kind: Ailment; severe: boolean }[] {
   return out
 }
 
+/**
+ * 村として切らしているもの。
+ *
+ * 蔵に水が無ければ、喉が渇いていても住民は飲みに行かない（行っても飲めない）。
+ * 判定は citizens.ts の drink / eat の枝とそろえてあり、両方ともこの関数を見る。
+ * 「なぜ飲みに行かないのか」を画面に出すのに使う。
+ */
+export function shortageOf(world: World): { water: boolean; food: boolean } {
+  return {
+    water: world.stock.water < 1,
+    food: world.stock.meal < 1 && world.stock.wheat < 1,
+  }
+}
+
 /** 力尽きるまでの残り tick（尽きかけていなければ null） */
 export function ticksToDeath(c: Citizen): number | null {
   if (c.starveKind === '') return null
